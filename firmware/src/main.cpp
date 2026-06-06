@@ -1,11 +1,11 @@
 #include <Arduino.h>
 
-#include "app/hardware_bringup_app.h"
+#include "app/core_app.h"
 
 void setup() {
-  reeflow::app::setupHardwareBringupApp();
+  reeflow::app::setupCoreApp();
 }
 
 void loop() {
-  reeflow::app::loopHardwareBringupApp();
+  reeflow::app::loopCoreApp();
 }
