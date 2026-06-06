@@ -1,14 +1,22 @@
 #include "diagnostics/hardware_bringup_diagnostics.h"
 
 #include "diagnostics/hardware_bringup_identity.h"
+#include "diagnostics/consolidation/hardware_bringup_consolidation.h"
+#include "diagnostics/i2c/i2c_bus_diagnostics.h"
+#include "diagnostics/noise/sensor_noise_validation_diagnostics.h"
+#include "diagnostics/power/five_volt_stability_diagnostics.h"
 #include "diagnostics/pwm/pwm_diagnostics.h"
 #include "diagnostics/relays/relay_diagnostics.h"
+#include "diagnostics/sensors/ds18b20_diagnostics.h"
+#include "diagnostics/sensors/vl6180x_diagnostics.h"
 
 namespace reeflow::diagnostics {
 namespace {
 
 constexpr unsigned long kRelayDiagnosticHoldMs = 1000;
 constexpr unsigned long kPwmDiagnosticHoldMs = 1000;
+constexpr unsigned long kFiveVoltStabilityHoldMs = 1000;
+constexpr unsigned long kSensorNoiseValidationHoldMs = 1000;
 
 }  // namespace
 
@@ -39,8 +47,39 @@ void runHardwareBringupLoop(Stream& serial) {
     return;
   }
 
+  if (input == 't' || input == 'T') {
+    runDs18b20Diagnostic(serial);
+    yield();
+    return;
+  }
+
+  if (input == 'i' || input == 'I') {
+    runI2cBusDiagnostic(serial);
+    yield();
+    return;
+  }
+
+  if (input == 'v' || input == 'V') {
+    runFiveVoltStabilityProcedure(serial, kFiveVoltStabilityHoldMs);
+    yield();
+    return;
+  }
+
+  if (input == 'n' || input == 'N') {
+    runSensorNoiseValidationProcedure(serial, kSensorNoiseValidationHoldMs);
+    yield();
+    return;
+  }
+
+  if (input == 'c' || input == 'C') {
+    runHardwareBringupConsolidation(serial);
+    yield();
+    return;
+  }
+
   if (input < '1' || input > '4') {
-    serial.println("Diagnostic command ignored. Use 1, 2, 3, 4 or p.");
+    serial.println(
+        "Diagnostic command ignored. Use 1, 2, 3, 4, p, t, i, v, n or c.");
     yield();
     return;
   }

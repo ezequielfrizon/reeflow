@@ -45,6 +45,11 @@ void printRelayDiagnosticCommands(Stream& output) {
   output.println("Hardware Diagnostic Commands");
   output.println("Send 1, 2, 3 or 4 to test one relay at a time.");
   output.println("Send p to run the PWM bring-up sequence.");
+  output.println("Send t to run the DS18B20 bring-up diagnostic.");
+  output.println("Send i to run the I2C bus scanner.");
+  output.println("Send v to run the 5V stability measurement procedure.");
+  output.println("Send n to run the sensor noise validation procedure.");
+  output.println("Send c to run the Phase 1 consolidation summary.");
 }
 
 void runRelayBringupDiagnostic(Stream& serial, uint8_t relayIndex,

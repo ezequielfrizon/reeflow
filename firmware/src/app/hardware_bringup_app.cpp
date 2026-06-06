@@ -28,6 +28,12 @@ void setupHardwareBringupApp() {
                                              safeStateResult.sensorBusPinsPrepared);
   diagnostics::printRelayDiagnosticCommands(Serial);
   diagnostics::printPwmBringupConfiguration(Serial);
+  diagnostics::printDs18b20DiagnosticTarget(Serial);
+  diagnostics::printI2cDiagnosticTarget(Serial);
+  diagnostics::printVl6180xDiagnosticTarget(Serial);
+  diagnostics::printFiveVoltStabilityChecklist(Serial);
+  diagnostics::printSensorNoiseValidationProcedure(Serial);
+  diagnostics::printHardwareBringupConsolidationSummary(Serial);
 }
 
 void loopHardwareBringupApp() {
