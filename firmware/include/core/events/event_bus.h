@@ -17,6 +17,11 @@ enum class EventType {
   kTemperatureLow,
   kTemperatureSensorOffline,
   kTemperatureSensorRecovered,
+  kWaterLevelUpdated,
+  kWaterLevelLow,
+  kWaterLevelHigh,
+  kWaterLevelSensorOffline,
+  kWaterLevelSensorRecovered,
 };
 
 enum class StateArea {

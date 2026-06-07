@@ -5,12 +5,14 @@
 #include "core/events/event_bus.h"
 #include "core/platform/core_platform.h"
 #include "core/scheduler/task_scheduler.h"
+#include "core/state/system_state.h"
 #include "fakes/fake_log_sink.h"
 #include "fakes/fake_temperature_sensor.h"
 #include "fakes/fake_time_source.h"
 #include "fakes/fake_water_level_sensor.h"
 #include "fakes/fake_watchdog_backend.h"
-#include "modules/temperature/temperature_service.h"
+#include "modules/water_level/water_level_config.h"
+#include "modules/water_level/water_level_service.h"
 
 namespace {
 
@@ -22,8 +24,10 @@ using reeflow::core::events::EventType;
 using reeflow::core::platform::CorePlatform;
 using reeflow::core::scheduler::SchedulerRunResult;
 using reeflow::core::scheduler::TaskScheduler;
-using reeflow::modules::temperature::TemperatureService;
-using reeflow::modules::temperature::runTemperatureServiceTask;
+using reeflow::core::state::WaterLevelStatus;
+using reeflow::modules::water_level::WaterLevelService;
+using reeflow::modules::water_level::makeDefaultWaterLevelModuleConfig;
+using reeflow::modules::water_level::runWaterLevelServiceTask;
 using reeflow::test::fakes::FakeLogSink;
 using reeflow::test::fakes::FakeTemperatureSensor;
 using reeflow::test::fakes::FakeTimeSource;
@@ -60,7 +64,7 @@ struct TestCoreAppContext {
             waterLevelSensor) {}
 };
 
-void testRuntimeTemperatureTaskUsesDefaultInterval() {
+void testRuntimeWaterLevelTaskUsesDefaultInterval() {
   TestCoreAppContext context;
   context.temperatureSensor.setValidTemperature(26.5F);
   context.waterLevelSensor.setValidLevel(50);
@@ -71,34 +75,33 @@ void testRuntimeTemperatureTaskUsesDefaultInterval() {
 
   assert(result.executedCount == 1);
   assert(context.watchdogBackend.feedCalls() == 1);
-  assert(context.temperatureSensor.readCount() == 0);
+  assert(context.waterLevelSensor.readCount() == 0);
 
   context.timeSource.advanceMillis(1);
   result = context.app.loopOnce();
 
   assert(result.executedCount == 2);
   assert(result.failedCount == 0);
-  assert(context.temperatureSensor.readCount() == 1);
   assert(context.waterLevelSensor.readCount() == 1);
+  assert(reeflow::core::state::currentSystemState().waterLevel.currentLevel ==
+         50);
 }
 
-void testTemperatureTaskUsesConfiguredInterval() {
+void testWaterLevelTaskUsesLocalModuleContractInterval() {
   FakeTimeSource timeSource;
   EventBus eventBus;
   FakeLogSink logSink;
   reeflow::core::logging::Logger logger(logSink);
   ConfigManager configManager(eventBus);
-  reeflow::config::TemperatureConfig config = configManager.temperature();
-  config.readIntervalMillis = 2500;
-  assert(configManager.updateTemperature(config));
-  FakeTemperatureSensor sensor;
-  sensor.setValidTemperature(26.5F);
-  TemperatureService service(sensor, configManager, timeSource, eventBus);
+  FakeWaterLevelSensor sensor;
+  sensor.setValidLevel(55);
+  WaterLevelService service(sensor, configManager, timeSource, eventBus);
   TaskScheduler scheduler(timeSource, eventBus, logger);
-  scheduler.registerTask("temperature", configManager.temperature().readIntervalMillis,
-                         runTemperatureServiceTask, &service);
+  const auto moduleConfig = makeDefaultWaterLevelModuleConfig();
+  scheduler.registerTask("water-level", moduleConfig.readIntervalMillis,
+                         runWaterLevelServiceTask, &service);
 
-  timeSource.advanceMillis(2499);
+  timeSource.advanceMillis(4999);
   SchedulerRunResult result = scheduler.runDueTasks();
   assert(result.executedCount == 0);
   assert(sensor.readCount() == 0);
@@ -110,18 +113,19 @@ void testTemperatureTaskUsesConfiguredInterval() {
   assert(sensor.readCount() == 1);
 }
 
-void testTemperatureTaskRunsOnMultipleIntervals() {
+void testWaterLevelTaskRunsOnMultipleIntervals() {
   FakeTimeSource timeSource;
   EventBus eventBus;
   FakeLogSink logSink;
   reeflow::core::logging::Logger logger(logSink);
   ConfigManager configManager(eventBus);
-  FakeTemperatureSensor sensor;
-  sensor.setValidTemperature(26.5F);
-  TemperatureService service(sensor, configManager, timeSource, eventBus);
+  FakeWaterLevelSensor sensor;
+  sensor.setValidLevel(55);
+  WaterLevelService service(sensor, configManager, timeSource, eventBus);
   TaskScheduler scheduler(timeSource, eventBus, logger);
-  scheduler.registerTask("temperature", configManager.temperature().readIntervalMillis,
-                         runTemperatureServiceTask, &service);
+  const auto moduleConfig = makeDefaultWaterLevelModuleConfig();
+  scheduler.registerTask("water-level", moduleConfig.readIntervalMillis,
+                         runWaterLevelServiceTask, &service);
 
   timeSource.advanceMillis(5000);
   assert(scheduler.runDueTasks().executedCount == 1);
@@ -132,7 +136,7 @@ void testTemperatureTaskRunsOnMultipleIntervals() {
   assert(sensor.readCount() == 2);
 }
 
-void testTemperatureTaskFailureIsReportedByScheduler() {
+void testWaterLevelTaskFailureIsReportedByScheduler() {
   FakeTimeSource timeSource;
   EventBus eventBus;
   EventRecorder recorder = {};
@@ -140,12 +144,13 @@ void testTemperatureTaskFailureIsReportedByScheduler() {
   FakeLogSink logSink;
   reeflow::core::logging::Logger logger(logSink);
   ConfigManager configManager(eventBus);
-  FakeTemperatureSensor sensor;
+  FakeWaterLevelSensor sensor;
   sensor.setReadError();
-  TemperatureService service(sensor, configManager, timeSource, eventBus);
+  WaterLevelService service(sensor, configManager, timeSource, eventBus);
   TaskScheduler scheduler(timeSource, eventBus, logger);
-  scheduler.registerTask("temperature", configManager.temperature().readIntervalMillis,
-                         runTemperatureServiceTask, &service);
+  const auto moduleConfig = makeDefaultWaterLevelModuleConfig();
+  scheduler.registerTask("water-level", moduleConfig.readIntervalMillis,
+                         runWaterLevelServiceTask, &service);
 
   timeSource.advanceMillis(5000);
   const SchedulerRunResult result = scheduler.runDueTasks();
@@ -156,34 +161,36 @@ void testTemperatureTaskFailureIsReportedByScheduler() {
   assert(recorder.events[0].type == EventType::kSchedulerTaskFailed);
 }
 
-void testConversionPendingDoesNotFailScheduler() {
+void testSensorFailuresDoNotBlockSchedulerUntilOffline() {
   FakeTimeSource timeSource;
   EventBus eventBus;
   FakeLogSink logSink;
   reeflow::core::logging::Logger logger(logSink);
   ConfigManager configManager(eventBus);
-  FakeTemperatureSensor sensor;
-  sensor.setConversionPending();
-  TemperatureService service(sensor, configManager, timeSource, eventBus);
+  FakeWaterLevelSensor sensor;
+  sensor.setReadError();
+  WaterLevelService service(sensor, configManager, timeSource, eventBus);
   TaskScheduler scheduler(timeSource, eventBus, logger);
-  scheduler.registerTask("temperature", configManager.temperature().readIntervalMillis,
-                         runTemperatureServiceTask, &service);
+  const auto moduleConfig = makeDefaultWaterLevelModuleConfig();
+  scheduler.registerTask("water-level", moduleConfig.readIntervalMillis,
+                         runWaterLevelServiceTask, &service);
 
-  timeSource.advanceMillis(5000);
+  timeSource.advanceMillis(30001);
   const SchedulerRunResult result = scheduler.runDueTasks();
 
   assert(result.executedCount == 1);
   assert(result.failedCount == 0);
-  assert(sensor.readCount() == 1);
+  assert(reeflow::core::state::currentSystemState().waterLevel.status ==
+         WaterLevelStatus::kSensorOffline);
 }
 
 }  // namespace
 
 int main() {
-  testRuntimeTemperatureTaskUsesDefaultInterval();
-  testTemperatureTaskUsesConfiguredInterval();
-  testTemperatureTaskRunsOnMultipleIntervals();
-  testTemperatureTaskFailureIsReportedByScheduler();
-  testConversionPendingDoesNotFailScheduler();
+  testRuntimeWaterLevelTaskUsesDefaultInterval();
+  testWaterLevelTaskUsesLocalModuleContractInterval();
+  testWaterLevelTaskRunsOnMultipleIntervals();
+  testWaterLevelTaskFailureIsReportedByScheduler();
+  testSensorFailuresDoNotBlockSchedulerUntilOffline();
   return 0;
 }

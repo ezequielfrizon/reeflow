@@ -21,6 +21,10 @@ g++ -std=c++17 -Wall -Wextra -Werror \
   "$FIRMWARE_DIR/src/modules/temperature/temperature_events.cpp" \
   "$FIRMWARE_DIR/src/modules/temperature/temperature_service.cpp" \
   "$FIRMWARE_DIR/src/modules/temperature/temperature_state_evaluator.cpp" \
+  "$FIRMWARE_DIR/src/modules/water_level/water_level_calibration.cpp" \
+  "$FIRMWARE_DIR/src/modules/water_level/water_level_events.cpp" \
+  "$FIRMWARE_DIR/src/modules/water_level/water_level_service.cpp" \
+  "$FIRMWARE_DIR/src/modules/water_level/water_level_state_evaluator.cpp" \
   -o "$BUILD_DIR/test_temperature_scheduler_integration"
 
 "$BUILD_DIR/test_temperature_scheduler_integration"

@@ -2,18 +2,22 @@
 
 #include "core/state/system_state.h"
 #include "modules/temperature/temperature_service.h"
+#include "modules/water_level/water_level_config.h"
+#include "modules/water_level/water_level_service.h"
 
 namespace reeflow::app {
 namespace {
 
 constexpr const char* kTemperatureTaskName = "temperature";
+constexpr const char* kWaterLevelTaskName = "water-level";
 
 }  // namespace
 
 CoreApp::CoreApp(core::platform::CorePlatform& platform,
                  core::events::EventBus& eventBus,
                  config::ConfigManager& config,
-                 modules::temperature::TemperatureSensor& temperatureSensor)
+                 modules::temperature::TemperatureSensor& temperatureSensor,
+                 modules::water_level::WaterLevelSensor& waterLevelSensor)
     : platform_(platform),
       eventBus_(eventBus),
       config_(config),
@@ -21,7 +25,9 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
       scheduler_(platform_.timeSource(), eventBus_, logger_),
       watchdog_(platform_.watchdogBackend(), platform_.timeSource(), logger_),
       temperatureService_(temperatureSensor, config_, platform_.timeSource(),
-                          eventBus_) {}
+                          eventBus_),
+      waterLevelService_(waterLevelSensor, config_, platform_.timeSource(),
+                         eventBus_) {}
 
 bool CoreApp::setup() {
   core::state::setSystemStateEventBus(eventBus_);
@@ -49,6 +55,18 @@ bool CoreApp::setup() {
       &temperatureService_);
   if (temperatureTaskId == core::scheduler::kInvalidTaskId) {
     logger_.error("core", "temperature task failed");
+    return false;
+  }
+
+  waterLevelService_.resetMonitor();
+  const modules::water_level::WaterLevelModuleConfig waterLevelConfig =
+      modules::water_level::makeDefaultWaterLevelModuleConfig();
+  const uint8_t waterLevelTaskId = scheduler_.registerTask(
+      kWaterLevelTaskName, waterLevelConfig.readIntervalMillis,
+      modules::water_level::runWaterLevelServiceTask,
+      &waterLevelService_);
+  if (waterLevelTaskId == core::scheduler::kInvalidTaskId) {
+    logger_.error("core", "water level task failed");
     return false;
   }
 

@@ -1,8 +1,10 @@
 #include "app/core_app.h"
 
 #include "core/platform/arduino_core_platform.h"
+#include "drivers/i2c/i2c_bus.h"
 #include "drivers/onewire/onewire_bus.h"
 #include "drivers/sensors/ds18b20/ds18b20_temperature_sensor.h"
+#include "drivers/sensors/vl6180x/vl6180x_level_sensor.h"
 
 namespace reeflow::app {
 
@@ -10,9 +12,12 @@ CoreApp& defaultCoreApp() {
   static drivers::sensors::Ds18b20TemperatureSensor temperatureSensor(
       drivers::arduinoOneWireBus(),
       core::platform::arduinoCorePlatform().timeSource());
+  static drivers::sensors::Vl6180xLevelSensor waterLevelSensor(
+      drivers::arduinoI2cBus());
   static CoreApp app(core::platform::arduinoCorePlatform(),
                      core::events::defaultEventBus(),
-                     config::defaultConfigManager(), temperatureSensor);
+                     config::defaultConfigManager(), temperatureSensor,
+                     waterLevelSensor);
   return app;
 }
 

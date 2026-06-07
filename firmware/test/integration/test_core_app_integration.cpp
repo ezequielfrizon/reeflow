@@ -8,6 +8,7 @@
 #include "fakes/fake_log_sink.h"
 #include "fakes/fake_time_source.h"
 #include "fakes/fake_temperature_sensor.h"
+#include "fakes/fake_water_level_sensor.h"
 #include "fakes/fake_watchdog_backend.h"
 
 namespace {
@@ -24,6 +25,7 @@ using reeflow::core::state::TemperatureStatus;
 using reeflow::test::fakes::FakeLogSink;
 using reeflow::test::fakes::FakeTimeSource;
 using reeflow::test::fakes::FakeTemperatureSensor;
+using reeflow::test::fakes::FakeWaterLevelSensor;
 using reeflow::test::fakes::FakeWatchdogBackend;
 
 struct EventRecorder {
@@ -46,12 +48,14 @@ struct TestCoreAppContext {
   EventBus eventBus;
   ConfigManager configManager;
   FakeTemperatureSensor temperatureSensor;
+  FakeWaterLevelSensor waterLevelSensor;
   CoreApp app;
 
   TestCoreAppContext()
       : platform(timeSource, logSink, watchdogBackend),
         configManager(eventBus),
-        app(platform, eventBus, configManager, temperatureSensor) {}
+        app(platform, eventBus, configManager, temperatureSensor,
+            waterLevelSensor) {}
 };
 
 void testSetupInitializesCoreInOrder() {
