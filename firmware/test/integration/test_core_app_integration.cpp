@@ -6,6 +6,7 @@
 #include "core/platform/core_platform.h"
 #include "core/state/system_state.h"
 #include "fakes/fake_log_sink.h"
+#include "fakes/fake_lighting_pwm_controller.h"
 #include "fakes/fake_mode_store.h"
 #include "fakes/fake_relay_controller.h"
 #include "fakes/fake_time_source.h"
@@ -36,6 +37,7 @@ using reeflow::modules::modes::MAINTENANCE;
 using reeflow::modules::modes::NORMAL;
 using reeflow::modules::modes::TPA;
 using reeflow::test::fakes::FakeLogSink;
+using reeflow::test::fakes::FakeLightingPwmController;
 using reeflow::test::fakes::FakeModeStore;
 using reeflow::test::fakes::FakeRelayController;
 using reeflow::test::fakes::FakeTimeSource;
@@ -65,6 +67,7 @@ struct TestCoreAppContext {
   FakeTemperatureSensor temperatureSensor;
   FakeWaterLevelSensor waterLevelSensor;
   FakeRelayController relayController;
+  FakeLightingPwmController lightingController;
   FakeModeStore modeStore;
   CoreApp app;
 
@@ -72,7 +75,7 @@ struct TestCoreAppContext {
       : platform(timeSource, logSink, watchdogBackend),
         configManager(eventBus),
         app(platform, eventBus, configManager, temperatureSensor,
-            waterLevelSensor, relayController, modeStore) {}
+            waterLevelSensor, relayController, lightingController, modeStore) {}
 };
 
 void testSetupInitializesCoreInOrder() {
@@ -254,7 +257,7 @@ void testLoopFeedsWatchdogThroughScheduler() {
   context.timeSource.advanceMillis(1);
   result = context.app.loopOnce();
 
-  assert(result.executedCount == 3);
+  assert(result.executedCount == 4);
   assert(result.failedCount == 0);
   assert(context.watchdogBackend.feedCalls() == 1);
   assert(reeflow::core::state::currentSystemState().ato.status ==
@@ -277,7 +280,7 @@ void testModeTaskRunsOnlyAfterConfiguredInterval() {
   context.timeSource.advanceMillis(1);
   result = context.app.loopOnce();
 
-  assert(result.executedCount == 3);
+  assert(result.executedCount == 4);
   assert(result.failedCount == 0);
   assert(reeflow::core::state::currentSystemState().modes.remainingTime == 599);
 }

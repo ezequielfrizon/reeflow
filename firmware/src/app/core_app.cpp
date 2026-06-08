@@ -3,6 +3,7 @@
 #include "core/state/system_state.h"
 #include "modules/ato/ato_config.h"
 #include "modules/ato/ato_service.h"
+#include "modules/lighting/lighting_service.h"
 #include "modules/temperature/temperature_service.h"
 #include "modules/water_level/water_level_config.h"
 #include "modules/water_level/water_level_service.h"
@@ -14,6 +15,32 @@ constexpr const char* kTemperatureTaskName = "temperature";
 constexpr const char* kWaterLevelTaskName = "water-level";
 constexpr const char* kAtoTaskName = "ato";
 constexpr const char* kModeTaskName = "modes";
+constexpr const char* kLightingTaskName = "lighting";
+
+config::LightingChannelConfig lightingChannelConfig(
+    const modules::lighting::LightingChannelProfile& profileChannel) {
+  return {profileChannel.enabled, profileChannel.maxDuty};
+}
+
+config::LightingConfig lightingConfigFromProfile(
+    const modules::lighting::LightingProfile& profile,
+    core::state::LightingMode mode) {
+  config::LightingConfig config = {};
+  config.mode = mode;
+  config.sunriseEnabled = profile.sunriseEnabled;
+  config.sunsetEnabled = profile.sunsetEnabled;
+  config.acclimationEnabled = mode == modules::lighting::ACCLIMATION &&
+                              profile.acclimationEnabled;
+  config.startMinuteOfDay = profile.startMinuteOfDay;
+  config.endMinuteOfDay = profile.endMinuteOfDay;
+  config.maxIntensityPercent = profile.maxGlobalIntensityPercent;
+  config.acclimationDays = profile.acclimationDurationDays;
+  config.white = lightingChannelConfig(profile.white);
+  config.blue = lightingChannelConfig(profile.blue);
+  config.royalBlue = lightingChannelConfig(profile.royalBlue);
+  config.uv = lightingChannelConfig(profile.uv);
+  return config;
+}
 
 }  // namespace
 
@@ -23,6 +50,7 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
                  modules::temperature::TemperatureSensor& temperatureSensor,
                  modules::water_level::WaterLevelSensor& waterLevelSensor,
                  modules::relays::RelayController& relayController,
+                 modules::lighting::LightingPwmController& lightingController,
                  modules::modes::ModeStore& modeStore)
     : platform_(platform),
       eventBus_(eventBus),
@@ -40,12 +68,23 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
                    modeStore),
       atoService_(relayService_, config_, platform_.timeSource(), eventBus_,
                   modules::ato::makeDefaultAtoModuleConfig(),
-                  &modeAutomationGate_) {}
+                  &modeAutomationGate_),
+      lightingProfile_(modules::lighting::makeDefaultLightingProfile()),
+      lightingModuleConfig_(modules::lighting::makeDefaultLightingModuleConfig()),
+      lightingService_(lightingController, config_, platform_.timeSource(),
+                       eventBus_, lightingProfile_, lightingModuleConfig_) {}
 
 bool CoreApp::setup() {
   core::state::setSystemStateEventBus(eventBus_);
   core::state::resetSystemState();
   config_.loadDefaults();
+  lightingProfile_ = modules::lighting::makeDefaultLightingProfile();
+  lightingService_.setActiveProfile(lightingProfile_);
+  if (!config_.updateLighting(lightingConfigFromProfile(
+          lightingProfile_, core::state::LightingMode::kManual))) {
+    logger_.error("core", "lighting config failed");
+    return false;
+  }
   scheduler_.clear();
 
   if (!watchdog_.initialize(kCoreWatchdogTimeoutMillis)) {
@@ -115,6 +154,21 @@ bool CoreApp::setup() {
     return false;
   }
 
+  const modules::lighting::LightingServiceEvaluationResult lightingInit =
+      lightingService_.initializeSafeState();
+  if (lightingInit.result != modules::lighting::LightingServiceResult::kSuccess) {
+    logger_.error("core", "lighting safe state failed");
+    return false;
+  }
+
+  const uint8_t lightingTaskId = scheduler_.registerTask(
+      kLightingTaskName, lightingModuleConfig_.evaluationIntervalMillis,
+      modules::lighting::runLightingServiceTask, &lightingService_);
+  if (lightingTaskId == core::scheduler::kInvalidTaskId) {
+    logger_.error("core", "lighting task failed");
+    return false;
+  }
+
   initialized_ = true;
   logger_.info("core", "initialized");
   return true;
@@ -147,6 +201,88 @@ modules::modes::ModeServiceResult CoreApp::requestMode(
 
   return modeService_.requestMode(modules::modes::makeLocalModeCommand(
       mode, platform_.timeSource().uptimeMillis()));
+}
+
+modules::lighting::LightingServiceResult CoreApp::requestLightingManualMode() {
+  if (!initialized_) {
+    return modules::lighting::LightingServiceResult::kInvalidCommand;
+  }
+
+  if (!config_.updateLighting(lightingConfigFromProfile(
+          lightingProfile_, core::state::LightingMode::kManual))) {
+    return modules::lighting::LightingServiceResult::kInvalidConfig;
+  }
+
+  return lightingService_.requestMode(
+      modules::lighting::MANUAL, platform_.timeSource().uptimeMillis());
+}
+
+modules::lighting::LightingServiceResult
+CoreApp::requestLightingAutomaticMode() {
+  if (!initialized_) {
+    return modules::lighting::LightingServiceResult::kInvalidCommand;
+  }
+
+  if (!config_.updateLighting(lightingConfigFromProfile(
+          lightingProfile_, core::state::LightingMode::kAutomatic))) {
+    return modules::lighting::LightingServiceResult::kInvalidConfig;
+  }
+
+  return lightingService_.requestMode(
+      modules::lighting::AUTOMATIC, platform_.timeSource().uptimeMillis());
+}
+
+modules::lighting::LightingServiceResult
+CoreApp::requestLightingAcclimationMode() {
+  if (!initialized_) {
+    return modules::lighting::LightingServiceResult::kInvalidCommand;
+  }
+
+  if (!config_.updateLighting(lightingConfigFromProfile(
+          lightingProfile_, core::state::LightingMode::kAcclimation))) {
+    return modules::lighting::LightingServiceResult::kInvalidConfig;
+  }
+
+  lightingService_.setAcclimationElapsedDays(
+      config_.lighting().acclimationDays > 0 ? 1 : 0);
+  return lightingService_.requestMode(
+      modules::lighting::ACCLIMATION, platform_.timeSource().uptimeMillis());
+}
+
+modules::lighting::LightingServiceResult CoreApp::setLightingProfile(
+    const modules::lighting::LightingProfile& profile) {
+  if (!initialized_) {
+    return modules::lighting::LightingServiceResult::kInvalidCommand;
+  }
+
+  if (modules::lighting::validateLightingProfile(profile) !=
+      modules::lighting::LightingProfileValidationResult::kValid) {
+    return modules::lighting::LightingServiceResult::kInvalidProfile;
+  }
+
+  lightingProfile_ = profile;
+  lightingService_.setActiveProfile(lightingProfile_);
+  if (!config_.updateLighting(
+          lightingConfigFromProfile(lightingProfile_, config_.lighting().mode))) {
+    return modules::lighting::LightingServiceResult::kInvalidConfig;
+  }
+
+  return lightingService_.requestProfile(platform_.timeSource().uptimeMillis());
+}
+
+modules::lighting::LightingServiceResult CoreApp::setLightingManualDuty(
+    modules::lighting::LightingChannel channel, uint16_t duty) {
+  if (!initialized_) {
+    return modules::lighting::LightingServiceResult::kInvalidCommand;
+  }
+
+  if (!config_.updateLighting(lightingConfigFromProfile(
+          lightingProfile_, core::state::LightingMode::kManual))) {
+    return modules::lighting::LightingServiceResult::kInvalidConfig;
+  }
+
+  return lightingService_.requestManualDuty(
+      channel, duty, platform_.timeSource().uptimeMillis());
 }
 
 config::ConfigManager& CoreApp::configManager() {

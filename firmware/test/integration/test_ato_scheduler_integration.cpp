@@ -7,6 +7,7 @@
 #include "core/scheduler/task_scheduler.h"
 #include "core/state/system_state.h"
 #include "fakes/fake_log_sink.h"
+#include "fakes/fake_lighting_pwm_controller.h"
 #include "fakes/fake_mode_store.h"
 #include "fakes/fake_relay_controller.h"
 #include "fakes/fake_temperature_sensor.h"
@@ -32,6 +33,7 @@ using reeflow::modules::relays::RelayCommandResult;
 using reeflow::modules::relays::RelayDesiredState;
 using reeflow::modules::relays::RelayId;
 using reeflow::test::fakes::FakeLogSink;
+using reeflow::test::fakes::FakeLightingPwmController;
 using reeflow::test::fakes::FakeModeStore;
 using reeflow::test::fakes::FakeRelayController;
 using reeflow::test::fakes::FakeTemperatureSensor;
@@ -60,6 +62,7 @@ struct TestCoreAppContext {
   FakeTemperatureSensor temperatureSensor;
   FakeWaterLevelSensor waterLevelSensor;
   FakeRelayController relayController;
+  FakeLightingPwmController lightingController;
   FakeModeStore modeStore;
   CoreApp app;
 
@@ -67,7 +70,7 @@ struct TestCoreAppContext {
       : platform(timeSource, logSink, watchdogBackend),
         configManager(eventBus),
         app(platform, eventBus, configManager, temperatureSensor,
-            waterLevelSensor, relayController, modeStore) {}
+            waterLevelSensor, relayController, lightingController, modeStore) {}
 };
 
 void setWaterLevel(uint16_t level, WaterLevelStatus status) {
@@ -105,7 +108,7 @@ void testAtoTaskUsesDefaultIntervalAndDoesNotRunEarly() {
   context.timeSource.advanceMillis(1);
   result = context.app.loopOnce();
 
-  assert(result.executedCount == 3);
+  assert(result.executedCount == 4);
   assert(result.failedCount == 0);
   assert(context.watchdogBackend.feedCalls() == 1);
   assert(reeflow::core::state::currentSystemState().ato.status ==
@@ -118,13 +121,13 @@ void testAtoTaskRunsOnMultipleIntervals() {
   assert(context.app.setup());
 
   context.timeSource.advanceMillis(1000);
-  assert(context.app.loopOnce().executedCount == 3);
+  assert(context.app.loopOnce().executedCount == 4);
 
   context.timeSource.advanceMillis(999);
   assert(context.app.loopOnce().executedCount == 0);
 
   context.timeSource.advanceMillis(1);
-  assert(context.app.loopOnce().executedCount == 3);
+  assert(context.app.loopOnce().executedCount == 4);
   assert(context.watchdogBackend.feedCalls() == 2);
 }
 
@@ -140,7 +143,7 @@ void testEnabledAtoStartsRefillFromSystemStateFixture() {
   context.timeSource.advanceMillis(1000);
   const SchedulerRunResult result = context.app.loopOnce();
 
-  assert(result.executedCount == 3);
+  assert(result.executedCount == 4);
   assert(result.failedCount == 0);
   assert(context.relayController.state(RelayId::kAtoPump) ==
          RelayDesiredState::kOn);
@@ -239,7 +242,7 @@ void testRelayFailureIsReportedAsSchedulerFailure() {
   context.timeSource.advanceMillis(1000);
   const SchedulerRunResult result = context.app.loopOnce();
 
-  assert(result.executedCount == 3);
+  assert(result.executedCount == 4);
   assert(result.failedCount == 1);
   assert(!reeflow::core::state::currentSystemState().ato.pumpRunning);
   assert(schedulerFailureRecorder.count == 1);

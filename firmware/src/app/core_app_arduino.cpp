@@ -2,6 +2,7 @@
 
 #include "core/platform/arduino_core_platform.h"
 #include "drivers/i2c/i2c_bus.h"
+#include "drivers/lighting/ledc_lighting_pwm_controller.h"
 #include "drivers/onewire/onewire_bus.h"
 #include "drivers/relays/gpio_relay_controller.h"
 #include "drivers/io/arduino_hardware_io.h"
@@ -19,11 +20,14 @@ CoreApp& defaultCoreApp() {
       drivers::arduinoI2cBus());
   static drivers::GpioRelayController relayController(
       drivers::arduinoGpioPort());
+  static drivers::lighting::LedcLightingPwmController lightingController(
+      drivers::arduinoPwmLedcPort());
   static modules::modes::VolatileModeStore modeStore;
   static CoreApp app(core::platform::arduinoCorePlatform(),
                      core::events::defaultEventBus(),
                      config::defaultConfigManager(), temperatureSensor,
-                     waterLevelSensor, relayController, modeStore);
+                     waterLevelSensor, relayController, lightingController,
+                     modeStore);
   return app;
 }
 

@@ -6,6 +6,8 @@
 #include "core/platform/core_platform.h"
 #include "core/scheduler/task_scheduler.h"
 #include "fakes/fake_log_sink.h"
+#include "fakes/fake_lighting_pwm_controller.h"
+#include "fakes/fake_mode_store.h"
 #include "fakes/fake_relay_controller.h"
 #include "fakes/fake_temperature_sensor.h"
 #include "fakes/fake_time_source.h"
@@ -26,6 +28,8 @@ using reeflow::core::scheduler::TaskScheduler;
 using reeflow::modules::temperature::TemperatureService;
 using reeflow::modules::temperature::runTemperatureServiceTask;
 using reeflow::test::fakes::FakeLogSink;
+using reeflow::test::fakes::FakeLightingPwmController;
+using reeflow::test::fakes::FakeModeStore;
 using reeflow::test::fakes::FakeRelayController;
 using reeflow::test::fakes::FakeTemperatureSensor;
 using reeflow::test::fakes::FakeTimeSource;
@@ -54,13 +58,15 @@ struct TestCoreAppContext {
   FakeTemperatureSensor temperatureSensor;
   FakeWaterLevelSensor waterLevelSensor;
   FakeRelayController relayController;
+  FakeLightingPwmController lightingController;
+  FakeModeStore modeStore;
   CoreApp app;
 
   TestCoreAppContext()
       : platform(timeSource, logSink, watchdogBackend),
         configManager(eventBus),
         app(platform, eventBus, configManager, temperatureSensor,
-            waterLevelSensor, relayController) {}
+            waterLevelSensor, relayController, lightingController, modeStore) {}
 };
 
 void testRuntimeTemperatureTaskUsesDefaultInterval() {
@@ -72,7 +78,7 @@ void testRuntimeTemperatureTaskUsesDefaultInterval() {
   context.timeSource.advanceMillis(4999);
   SchedulerRunResult result = context.app.loopOnce();
 
-  assert(result.executedCount == 2);
+  assert(result.executedCount == 4);
   assert(context.watchdogBackend.feedCalls() == 1);
   assert(context.temperatureSensor.readCount() == 0);
 

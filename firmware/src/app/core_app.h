@@ -9,6 +9,10 @@
 #include "core/scheduler/task_scheduler.h"
 #include "core/watchdog/watchdog_service.h"
 #include "modules/ato/ato_service.h"
+#include "modules/lighting/lighting_profile.h"
+#include "modules/lighting/lighting_pwm_controller.h"
+#include "modules/lighting/lighting_service.h"
+#include "modules/lighting/lighting_types.h"
 #include "modules/modes/mode_automation_gate.h"
 #include "modules/modes/mode_effects.h"
 #include "modules/modes/mode_service.h"
@@ -33,6 +37,7 @@ class CoreApp {
           modules::temperature::TemperatureSensor& temperatureSensor,
           modules::water_level::WaterLevelSensor& waterLevelSensor,
           modules::relays::RelayController& relayController,
+          modules::lighting::LightingPwmController& lightingController,
           modules::modes::ModeStore& modeStore);
 
   bool setup();
@@ -42,6 +47,13 @@ class CoreApp {
       modules::relays::RelayDesiredState desiredState);
   modules::modes::ModeServiceResult requestMode(
       modules::modes::OperationalMode mode);
+  modules::lighting::LightingServiceResult requestLightingManualMode();
+  modules::lighting::LightingServiceResult requestLightingAutomaticMode();
+  modules::lighting::LightingServiceResult requestLightingAcclimationMode();
+  modules::lighting::LightingServiceResult setLightingProfile(
+      const modules::lighting::LightingProfile& profile);
+  modules::lighting::LightingServiceResult setLightingManualDuty(
+      modules::lighting::LightingChannel channel, uint16_t duty);
 
   config::ConfigManager& configManager();
   core::events::EventBus& eventBus();
@@ -62,6 +74,9 @@ class CoreApp {
   modules::modes::RelayModeEffects modeEffects_;
   modules::modes::ModeService modeService_;
   modules::ato::AtoService atoService_;
+  modules::lighting::LightingProfile lightingProfile_;
+  modules::lighting::LightingModuleConfig lightingModuleConfig_;
+  modules::lighting::LightingService lightingService_;
   bool initialized_ = false;
 };
 

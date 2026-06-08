@@ -32,6 +32,9 @@ enum class EventType {
   kModeChanged,
   kModeStarted,
   kModeFinished,
+  kLightingProfileChanged,
+  kLightingStarted,
+  kLightingStopped,
 };
 
 enum class StateArea {
@@ -65,6 +68,7 @@ struct Event {
   ConfigDomain configDomain;
   uint8_t schedulerTaskId;
   uint32_t sequence;
+  const void* payload;
 };
 
 struct PublishResult {

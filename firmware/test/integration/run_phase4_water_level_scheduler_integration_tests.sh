@@ -21,6 +21,14 @@ g++ -std=c++17 -Wall -Wextra -Werror \
   "$FIRMWARE_DIR/src/modules/ato/ato_events.cpp" \
   "$FIRMWARE_DIR/src/modules/ato/ato_policy.cpp" \
   "$FIRMWARE_DIR/src/modules/ato/ato_service.cpp" \
+  "$FIRMWARE_DIR/src/modules/lighting/lighting_events.cpp" \
+  "$FIRMWARE_DIR/src/modules/lighting/lighting_policy.cpp" \
+  "$FIRMWARE_DIR/src/modules/lighting/lighting_service.cpp" \
+  "$FIRMWARE_DIR/src/modules/modes/mode_automation_gate.cpp" \
+  "$FIRMWARE_DIR/src/modules/modes/mode_effects.cpp" \
+  "$FIRMWARE_DIR/src/modules/modes/mode_events.cpp" \
+  "$FIRMWARE_DIR/src/modules/modes/mode_policy.cpp" \
+  "$FIRMWARE_DIR/src/modules/modes/mode_service.cpp" \
   "$FIRMWARE_DIR/src/modules/relays/relay_events.cpp" \
   "$FIRMWARE_DIR/src/modules/relays/relay_service.cpp" \
   "$FIRMWARE_DIR/src/modules/temperature/temperature_events.cpp" \
