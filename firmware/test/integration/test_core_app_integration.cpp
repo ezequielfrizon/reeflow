@@ -6,6 +6,7 @@
 #include "core/platform/core_platform.h"
 #include "core/state/system_state.h"
 #include "fakes/fake_log_sink.h"
+#include "fakes/fake_relay_controller.h"
 #include "fakes/fake_time_source.h"
 #include "fakes/fake_temperature_sensor.h"
 #include "fakes/fake_water_level_sensor.h"
@@ -21,8 +22,13 @@ using reeflow::core::events::EventBus;
 using reeflow::core::events::EventType;
 using reeflow::core::events::StateArea;
 using reeflow::core::platform::CorePlatform;
+using reeflow::core::state::RelaySource;
 using reeflow::core::state::TemperatureStatus;
+using reeflow::modules::relays::RelayCommandResult;
+using reeflow::modules::relays::RelayDesiredState;
+using reeflow::modules::relays::RelayId;
 using reeflow::test::fakes::FakeLogSink;
+using reeflow::test::fakes::FakeRelayController;
 using reeflow::test::fakes::FakeTimeSource;
 using reeflow::test::fakes::FakeTemperatureSensor;
 using reeflow::test::fakes::FakeWaterLevelSensor;
@@ -49,13 +55,14 @@ struct TestCoreAppContext {
   ConfigManager configManager;
   FakeTemperatureSensor temperatureSensor;
   FakeWaterLevelSensor waterLevelSensor;
+  FakeRelayController relayController;
   CoreApp app;
 
   TestCoreAppContext()
       : platform(timeSource, logSink, watchdogBackend),
         configManager(eventBus),
         app(platform, eventBus, configManager, temperatureSensor,
-            waterLevelSensor) {}
+            waterLevelSensor, relayController) {}
 };
 
 void testSetupInitializesCoreInOrder() {
@@ -77,6 +84,82 @@ void testSetupInitializesCoreInOrder() {
   assert(context.logSink.messages()[1] == "[INFO] core: initialized\n");
 }
 
+void testSetupAppliesRelaySafeStateWithoutRelayEvents() {
+  TestCoreAppContext context;
+  EventRecorder relayOnRecorder = {};
+  EventRecorder relayOffRecorder = {};
+  context.eventBus.subscribe(EventType::kRelayOn, recordEvent,
+                             &relayOnRecorder);
+  context.eventBus.subscribe(EventType::kRelayOff, recordEvent,
+                             &relayOffRecorder);
+
+  assert(context.app.setup());
+
+  assert(context.relayController.allOffCallCount() == 1);
+  assert(context.relayController.state(RelayId::kRecalque) ==
+         RelayDesiredState::kOff);
+  assert(context.relayController.state(RelayId::kHeater) ==
+         RelayDesiredState::kOff);
+  assert(context.relayController.state(RelayId::kAtoPump) ==
+         RelayDesiredState::kOff);
+  assert(context.relayController.state(RelayId::kReserve) ==
+         RelayDesiredState::kOff);
+  assert(!reeflow::core::state::currentSystemState().relays.recalque.enabled);
+  assert(!reeflow::core::state::currentSystemState().relays.heater.enabled);
+  assert(!reeflow::core::state::currentSystemState().relays.atoPump.enabled);
+  assert(!reeflow::core::state::currentSystemState().relays.reserve.enabled);
+  assert(relayOnRecorder.count == 0);
+  assert(relayOffRecorder.count == 0);
+}
+
+void testLocalRelayApiAllowsManualCommandsAfterSetup() {
+  TestCoreAppContext context;
+  assert(context.app.setup());
+  context.timeSource.setUptimeMillis(250);
+
+  assert(context.app.setLocalRelay(RelayId::kRecalque,
+                                   RelayDesiredState::kOn) ==
+         RelayCommandResult::kSuccess);
+  assert(context.app.setLocalRelay(RelayId::kHeater,
+                                   RelayDesiredState::kOn) ==
+         RelayCommandResult::kSuccess);
+  assert(context.app.setLocalRelay(RelayId::kAtoPump,
+                                   RelayDesiredState::kOn) ==
+         RelayCommandResult::kSuccess);
+  assert(context.app.setLocalRelay(RelayId::kReserve,
+                                   RelayDesiredState::kOn) ==
+         RelayCommandResult::kSuccess);
+  assert(context.app.setLocalRelay(RelayId::kReserve,
+                                   RelayDesiredState::kOff) ==
+         RelayCommandResult::kSuccess);
+
+  assert(reeflow::core::state::currentSystemState().relays.recalque.enabled);
+  assert(reeflow::core::state::currentSystemState().relays.heater.enabled);
+  assert(reeflow::core::state::currentSystemState().relays.atoPump.enabled);
+  assert(!reeflow::core::state::currentSystemState().relays.reserve.enabled);
+  assert(reeflow::core::state::currentSystemState().relays.recalque.source ==
+         RelaySource::kLocal);
+  assert(reeflow::core::state::currentSystemState().relays.reserve.source ==
+         RelaySource::kLocal);
+}
+
+void testRelaySafeStateFailureKeepsSetupFailedAndRelaysOff() {
+  TestCoreAppContext context;
+  context.relayController.setAllOffResult(
+      RelayCommandResult::kControllerFailure);
+
+  assert(!context.app.setup());
+
+  assert(context.relayController.allOffCallCount() == 1);
+  assert(!reeflow::core::state::currentSystemState().relays.recalque.enabled);
+  assert(!reeflow::core::state::currentSystemState().relays.heater.enabled);
+  assert(!reeflow::core::state::currentSystemState().relays.atoPump.enabled);
+  assert(!reeflow::core::state::currentSystemState().relays.reserve.enabled);
+  assert(context.app.setLocalRelay(RelayId::kRecalque,
+                                   RelayDesiredState::kOn) ==
+         RelayCommandResult::kControllerFailure);
+}
+
 void testLoopFeedsWatchdogThroughScheduler() {
   TestCoreAppContext context;
 
@@ -91,9 +174,11 @@ void testLoopFeedsWatchdogThroughScheduler() {
   context.timeSource.advanceMillis(1);
   result = context.app.loopOnce();
 
-  assert(result.executedCount == 1);
+  assert(result.executedCount == 2);
   assert(result.failedCount == 0);
   assert(context.watchdogBackend.feedCalls() == 1);
+  assert(reeflow::core::state::currentSystemState().ato.status ==
+         reeflow::core::state::AtoStatus::kDisabled);
 }
 
 void testStateAndConfigEventsFlowDuringIntegration() {
@@ -132,6 +217,9 @@ void testStateAndConfigEventsFlowDuringIntegration() {
 
 int main() {
   testSetupInitializesCoreInOrder();
+  testSetupAppliesRelaySafeStateWithoutRelayEvents();
+  testLocalRelayApiAllowsManualCommandsAfterSetup();
+  testRelaySafeStateFailureKeepsSetupFailedAndRelaysOff();
   testLoopFeedsWatchdogThroughScheduler();
   testStateAndConfigEventsFlowDuringIntegration();
   return 0;

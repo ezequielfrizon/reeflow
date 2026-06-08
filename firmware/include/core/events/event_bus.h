@@ -22,6 +22,13 @@ enum class EventType {
   kWaterLevelHigh,
   kWaterLevelSensorOffline,
   kWaterLevelSensorRecovered,
+  kRelayOn,
+  kRelayOff,
+  kAtoStart,
+  kAtoStop,
+  kAtoTimeout,
+  kAtoSensorOffline,
+  kAtoRecovered,
 };
 
 enum class StateArea {

@@ -7,6 +7,7 @@
 #include "core/scheduler/task_scheduler.h"
 #include "core/state/system_state.h"
 #include "fakes/fake_log_sink.h"
+#include "fakes/fake_relay_controller.h"
 #include "fakes/fake_temperature_sensor.h"
 #include "fakes/fake_time_source.h"
 #include "fakes/fake_water_level_sensor.h"
@@ -29,6 +30,7 @@ using reeflow::modules::water_level::WaterLevelService;
 using reeflow::modules::water_level::makeDefaultWaterLevelModuleConfig;
 using reeflow::modules::water_level::runWaterLevelServiceTask;
 using reeflow::test::fakes::FakeLogSink;
+using reeflow::test::fakes::FakeRelayController;
 using reeflow::test::fakes::FakeTemperatureSensor;
 using reeflow::test::fakes::FakeTimeSource;
 using reeflow::test::fakes::FakeWaterLevelSensor;
@@ -55,13 +57,14 @@ struct TestCoreAppContext {
   ConfigManager configManager;
   FakeTemperatureSensor temperatureSensor;
   FakeWaterLevelSensor waterLevelSensor;
+  FakeRelayController relayController;
   CoreApp app;
 
   TestCoreAppContext()
       : platform(timeSource, logSink, watchdogBackend),
         configManager(eventBus),
         app(platform, eventBus, configManager, temperatureSensor,
-            waterLevelSensor) {}
+            waterLevelSensor, relayController) {}
 };
 
 void testRuntimeWaterLevelTaskUsesDefaultInterval() {
@@ -73,7 +76,7 @@ void testRuntimeWaterLevelTaskUsesDefaultInterval() {
   context.timeSource.advanceMillis(4999);
   SchedulerRunResult result = context.app.loopOnce();
 
-  assert(result.executedCount == 1);
+  assert(result.executedCount == 2);
   assert(context.watchdogBackend.feedCalls() == 1);
   assert(context.waterLevelSensor.readCount() == 0);
 

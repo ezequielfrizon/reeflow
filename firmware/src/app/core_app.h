@@ -8,6 +8,10 @@
 #include "core/platform/core_platform.h"
 #include "core/scheduler/task_scheduler.h"
 #include "core/watchdog/watchdog_service.h"
+#include "modules/ato/ato_service.h"
+#include "modules/relays/relay_controller.h"
+#include "modules/relays/relay_service.h"
+#include "modules/relays/relay_types.h"
 #include "modules/temperature/temperature_sensor.h"
 #include "modules/temperature/temperature_service.h"
 #include "modules/water_level/water_level_sensor.h"
@@ -23,10 +27,14 @@ class CoreApp {
   CoreApp(core::platform::CorePlatform& platform,
           core::events::EventBus& eventBus, config::ConfigManager& config,
           modules::temperature::TemperatureSensor& temperatureSensor,
-          modules::water_level::WaterLevelSensor& waterLevelSensor);
+          modules::water_level::WaterLevelSensor& waterLevelSensor,
+          modules::relays::RelayController& relayController);
 
   bool setup();
   core::scheduler::SchedulerRunResult loopOnce();
+  modules::relays::RelayCommandResult setLocalRelay(
+      modules::relays::RelayId relay,
+      modules::relays::RelayDesiredState desiredState);
 
   config::ConfigManager& configManager();
   core::events::EventBus& eventBus();
@@ -42,6 +50,8 @@ class CoreApp {
   core::watchdog::WatchdogService watchdog_;
   modules::temperature::TemperatureService temperatureService_;
   modules::water_level::WaterLevelService waterLevelService_;
+  modules::relays::RelayService relayService_;
+  modules::ato::AtoService atoService_;
   bool initialized_ = false;
 };
 

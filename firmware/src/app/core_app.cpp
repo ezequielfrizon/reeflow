@@ -1,6 +1,8 @@
 #include "app/core_app.h"
 
 #include "core/state/system_state.h"
+#include "modules/ato/ato_config.h"
+#include "modules/ato/ato_service.h"
 #include "modules/temperature/temperature_service.h"
 #include "modules/water_level/water_level_config.h"
 #include "modules/water_level/water_level_service.h"
@@ -10,6 +12,7 @@ namespace {
 
 constexpr const char* kTemperatureTaskName = "temperature";
 constexpr const char* kWaterLevelTaskName = "water-level";
+constexpr const char* kAtoTaskName = "ato";
 
 }  // namespace
 
@@ -17,7 +20,8 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
                  core::events::EventBus& eventBus,
                  config::ConfigManager& config,
                  modules::temperature::TemperatureSensor& temperatureSensor,
-                 modules::water_level::WaterLevelSensor& waterLevelSensor)
+                 modules::water_level::WaterLevelSensor& waterLevelSensor,
+                 modules::relays::RelayController& relayController)
     : platform_(platform),
       eventBus_(eventBus),
       config_(config),
@@ -27,7 +31,9 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
       temperatureService_(temperatureSensor, config_, platform_.timeSource(),
                           eventBus_),
       waterLevelService_(waterLevelSensor, config_, platform_.timeSource(),
-                         eventBus_) {}
+                         eventBus_),
+      relayService_(relayController, platform_.timeSource(), eventBus_),
+      atoService_(relayService_, config_, platform_.timeSource(), eventBus_) {}
 
 bool CoreApp::setup() {
   core::state::setSystemStateEventBus(eventBus_);
@@ -45,6 +51,14 @@ bool CoreApp::setup() {
                               core::watchdog::feedWatchdogTask, &watchdog_);
   if (watchdogTaskId == core::scheduler::kInvalidTaskId) {
     logger_.error("core", "watchdog task failed");
+    return false;
+  }
+
+  const modules::relays::RelayCommandResult relaySafeStateResult =
+      relayService_.allOff(core::state::RelaySource::kFailsafe);
+  if (relaySafeStateResult !=
+      modules::relays::RelayCommandResult::kSuccess) {
+    logger_.error("core", "relay safe state failed");
     return false;
   }
 
@@ -70,6 +84,16 @@ bool CoreApp::setup() {
     return false;
   }
 
+  const modules::ato::AtoModuleConfig atoConfig =
+      modules::ato::makeDefaultAtoModuleConfig();
+  const uint8_t atoTaskId = scheduler_.registerTask(
+      kAtoTaskName, atoConfig.evaluationIntervalMillis,
+      modules::ato::runAtoServiceTask, &atoService_);
+  if (atoTaskId == core::scheduler::kInvalidTaskId) {
+    logger_.error("core", "ato task failed");
+    return false;
+  }
+
   initialized_ = true;
   logger_.info("core", "initialized");
   return true;
@@ -82,6 +106,16 @@ core::scheduler::SchedulerRunResult CoreApp::loopOnce() {
   }
 
   return scheduler_.runDueTasks();
+}
+
+modules::relays::RelayCommandResult CoreApp::setLocalRelay(
+    modules::relays::RelayId relay,
+    modules::relays::RelayDesiredState desiredState) {
+  if (!initialized_) {
+    return modules::relays::RelayCommandResult::kControllerFailure;
+  }
+
+  return relayService_.setLocalRelay(relay, desiredState);
 }
 
 config::ConfigManager& CoreApp::configManager() {

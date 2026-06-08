@@ -3,6 +3,8 @@
 #include "core/platform/arduino_core_platform.h"
 #include "drivers/i2c/i2c_bus.h"
 #include "drivers/onewire/onewire_bus.h"
+#include "drivers/relays/gpio_relay_controller.h"
+#include "drivers/io/arduino_hardware_io.h"
 #include "drivers/sensors/ds18b20/ds18b20_temperature_sensor.h"
 #include "drivers/sensors/vl6180x/vl6180x_level_sensor.h"
 
@@ -14,10 +16,12 @@ CoreApp& defaultCoreApp() {
       core::platform::arduinoCorePlatform().timeSource());
   static drivers::sensors::Vl6180xLevelSensor waterLevelSensor(
       drivers::arduinoI2cBus());
+  static drivers::GpioRelayController relayController(
+      drivers::arduinoGpioPort());
   static CoreApp app(core::platform::arduinoCorePlatform(),
                      core::events::defaultEventBus(),
                      config::defaultConfigManager(), temperatureSensor,
-                     waterLevelSensor);
+                     waterLevelSensor, relayController);
   return app;
 }
 
