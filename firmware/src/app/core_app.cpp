@@ -13,6 +13,7 @@ namespace {
 constexpr const char* kTemperatureTaskName = "temperature";
 constexpr const char* kWaterLevelTaskName = "water-level";
 constexpr const char* kAtoTaskName = "ato";
+constexpr const char* kModeTaskName = "modes";
 
 }  // namespace
 
@@ -21,7 +22,8 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
                  config::ConfigManager& config,
                  modules::temperature::TemperatureSensor& temperatureSensor,
                  modules::water_level::WaterLevelSensor& waterLevelSensor,
-                 modules::relays::RelayController& relayController)
+                 modules::relays::RelayController& relayController,
+                 modules::modes::ModeStore& modeStore)
     : platform_(platform),
       eventBus_(eventBus),
       config_(config),
@@ -33,7 +35,12 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
       waterLevelService_(waterLevelSensor, config_, platform_.timeSource(),
                          eventBus_),
       relayService_(relayController, platform_.timeSource(), eventBus_),
-      atoService_(relayService_, config_, platform_.timeSource(), eventBus_) {}
+      modeEffects_(relayService_, modeAutomationGate_),
+      modeService_(config_, platform_.timeSource(), eventBus_, modeEffects_,
+                   modeStore),
+      atoService_(relayService_, config_, platform_.timeSource(), eventBus_,
+                  modules::ato::makeDefaultAtoModuleConfig(),
+                  &modeAutomationGate_) {}
 
 bool CoreApp::setup() {
   core::state::setSystemStateEventBus(eventBus_);
@@ -60,6 +67,12 @@ bool CoreApp::setup() {
       modules::relays::RelayCommandResult::kSuccess) {
     logger_.error("core", "relay safe state failed");
     return false;
+  }
+
+  const modules::modes::ModeServiceResult modeRestoreResult =
+      modeService_.restoreModeFromStore();
+  if (modeRestoreResult != modules::modes::ModeServiceResult::kSuccess) {
+    logger_.error("core", "mode restore failed");
   }
 
   temperatureService_.resetMonitor();
@@ -94,6 +107,14 @@ bool CoreApp::setup() {
     return false;
   }
 
+  const uint8_t modeTaskId = scheduler_.registerTask(
+      kModeTaskName, modules::modes::kModeServiceTaskIntervalMillis,
+      modules::modes::runModeServiceTask, &modeService_);
+  if (modeTaskId == core::scheduler::kInvalidTaskId) {
+    logger_.error("core", "mode task failed");
+    return false;
+  }
+
   initialized_ = true;
   logger_.info("core", "initialized");
   return true;
@@ -116,6 +137,16 @@ modules::relays::RelayCommandResult CoreApp::setLocalRelay(
   }
 
   return relayService_.setLocalRelay(relay, desiredState);
+}
+
+modules::modes::ModeServiceResult CoreApp::requestMode(
+    modules::modes::OperationalMode mode) {
+  if (!initialized_) {
+    return modules::modes::ModeServiceResult::kInvalidCommand;
+  }
+
+  return modeService_.requestMode(modules::modes::makeLocalModeCommand(
+      mode, platform_.timeSource().uptimeMillis()));
 }
 
 config::ConfigManager& CoreApp::configManager() {

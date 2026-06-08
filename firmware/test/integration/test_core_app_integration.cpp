@@ -6,6 +6,7 @@
 #include "core/platform/core_platform.h"
 #include "core/state/system_state.h"
 #include "fakes/fake_log_sink.h"
+#include "fakes/fake_mode_store.h"
 #include "fakes/fake_relay_controller.h"
 #include "fakes/fake_time_source.h"
 #include "fakes/fake_temperature_sensor.h"
@@ -22,12 +23,20 @@ using reeflow::core::events::EventBus;
 using reeflow::core::events::EventType;
 using reeflow::core::events::StateArea;
 using reeflow::core::platform::CorePlatform;
+using reeflow::core::state::AtoStatus;
 using reeflow::core::state::RelaySource;
 using reeflow::core::state::TemperatureStatus;
+using reeflow::core::state::WaterLevelStatus;
+using reeflow::modules::modes::ModeServiceResult;
 using reeflow::modules::relays::RelayCommandResult;
 using reeflow::modules::relays::RelayDesiredState;
 using reeflow::modules::relays::RelayId;
+using reeflow::modules::modes::FEEDING;
+using reeflow::modules::modes::MAINTENANCE;
+using reeflow::modules::modes::NORMAL;
+using reeflow::modules::modes::TPA;
 using reeflow::test::fakes::FakeLogSink;
+using reeflow::test::fakes::FakeModeStore;
 using reeflow::test::fakes::FakeRelayController;
 using reeflow::test::fakes::FakeTimeSource;
 using reeflow::test::fakes::FakeTemperatureSensor;
@@ -56,13 +65,14 @@ struct TestCoreAppContext {
   FakeTemperatureSensor temperatureSensor;
   FakeWaterLevelSensor waterLevelSensor;
   FakeRelayController relayController;
+  FakeModeStore modeStore;
   CoreApp app;
 
   TestCoreAppContext()
       : platform(timeSource, logSink, watchdogBackend),
         configManager(eventBus),
         app(platform, eventBus, configManager, temperatureSensor,
-            waterLevelSensor, relayController) {}
+            waterLevelSensor, relayController, modeStore) {}
 };
 
 void testSetupInitializesCoreInOrder() {
@@ -110,6 +120,76 @@ void testSetupAppliesRelaySafeStateWithoutRelayEvents() {
   assert(!reeflow::core::state::currentSystemState().relays.reserve.enabled);
   assert(relayOnRecorder.count == 0);
   assert(relayOffRecorder.count == 0);
+}
+
+void testSetupWithNoSavedModeKeepsNormal() {
+  TestCoreAppContext context;
+  context.modeStore.simulateNoSavedMode();
+
+  assert(context.app.setup());
+
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         NORMAL);
+  assert(reeflow::core::state::currentSystemState().modes.startedAt == 0);
+  assert(reeflow::core::state::currentSystemState().modes.remainingTime == 0);
+}
+
+void testSetupRejectsInvalidSavedModeAndKeepsNormal() {
+  TestCoreAppContext context;
+  context.modeStore.simulateInvalidSavedMode();
+
+  assert(context.app.setup());
+
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         NORMAL);
+  assert(context.relayController.recordedCallCount() == 1);
+  assert(context.logSink.messages().back() ==
+         "[INFO] core: initialized\n");
+}
+
+void testSetupRestoresSavedNormalWithoutRelayOn() {
+  TestCoreAppContext context;
+  context.modeStore.simulateLoadedMode(NORMAL);
+
+  assert(context.app.setup());
+
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         NORMAL);
+  assert(context.relayController.recordedCallCount() == 1);
+}
+
+void testSetupFallsBackFromSavedFeedingToNormal() {
+  TestCoreAppContext context;
+  context.modeStore.simulateLoadedMode(FEEDING);
+
+  assert(context.app.setup());
+
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         NORMAL);
+  assert(context.relayController.recordedCallCount() == 1);
+}
+
+void testSetupRestoresSavedTpaWithSafeEffects() {
+  TestCoreAppContext context;
+  context.modeStore.simulateLoadedMode(TPA);
+
+  assert(context.app.setup());
+
+  assert(reeflow::core::state::currentSystemState().modes.currentMode == TPA);
+  assert(!reeflow::core::state::currentSystemState().relays.recalque.enabled);
+  assert(!reeflow::core::state::currentSystemState().relays.atoPump.enabled);
+  assert(context.relayController.recordedCallCount() == 1);
+}
+
+void testSetupRestoresSavedMaintenanceWithoutRelayCommand() {
+  TestCoreAppContext context;
+  context.modeStore.simulateLoadedMode(MAINTENANCE);
+
+  assert(context.app.setup());
+
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         MAINTENANCE);
+  assert(context.relayController.recordedCallCount() == 1);
 }
 
 void testLocalRelayApiAllowsManualCommandsAfterSetup() {
@@ -174,11 +254,123 @@ void testLoopFeedsWatchdogThroughScheduler() {
   context.timeSource.advanceMillis(1);
   result = context.app.loopOnce();
 
-  assert(result.executedCount == 2);
+  assert(result.executedCount == 3);
   assert(result.failedCount == 0);
   assert(context.watchdogBackend.feedCalls() == 1);
   assert(reeflow::core::state::currentSystemState().ato.status ==
-         reeflow::core::state::AtoStatus::kDisabled);
+         AtoStatus::kDisabled);
+}
+
+void testModeTaskRunsOnlyAfterConfiguredInterval() {
+  TestCoreAppContext context;
+  assert(context.app.setup());
+  assert(context.app.requestMode(FEEDING) == ModeServiceResult::kSuccess);
+  assert(reeflow::core::state::currentSystemState().modes.remainingTime == 600);
+
+  context.timeSource.advanceMillis(999);
+  reeflow::core::scheduler::SchedulerRunResult result =
+      context.app.loopOnce();
+
+  assert(result.executedCount == 0);
+  assert(reeflow::core::state::currentSystemState().modes.remainingTime == 600);
+
+  context.timeSource.advanceMillis(1);
+  result = context.app.loopOnce();
+
+  assert(result.executedCount == 3);
+  assert(result.failedCount == 0);
+  assert(reeflow::core::state::currentSystemState().modes.remainingTime == 599);
+}
+
+void testLocalModeApiSupportsAllCanonicalModes() {
+  TestCoreAppContext context;
+  assert(context.app.setup());
+
+  assert(context.app.requestMode(FEEDING) == ModeServiceResult::kSuccess);
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         FEEDING);
+
+  assert(context.app.requestMode(NORMAL) == ModeServiceResult::kSuccess);
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         NORMAL);
+
+  assert(context.app.requestMode(TPA) == ModeServiceResult::kSuccess);
+  assert(reeflow::core::state::currentSystemState().modes.currentMode == TPA);
+
+  assert(context.app.requestMode(NORMAL) == ModeServiceResult::kSuccess);
+  assert(context.app.requestMode(MAINTENANCE) ==
+         ModeServiceResult::kSuccess);
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         MAINTENANCE);
+}
+
+void testModeSchedulerFinishesFeedingButNotManualModes() {
+  TestCoreAppContext context;
+  assert(context.app.setup());
+  assert(context.app.requestMode(FEEDING) == ModeServiceResult::kSuccess);
+
+  context.timeSource.advanceMillis(600000);
+  reeflow::core::scheduler::SchedulerRunResult result =
+      context.app.loopOnce();
+
+  assert(result.failedCount == 0);
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         NORMAL);
+  assert(!reeflow::core::state::currentSystemState().relays.recalque.enabled);
+
+  assert(context.app.requestMode(TPA) == ModeServiceResult::kSuccess);
+  context.timeSource.advanceMillis(600000);
+  result = context.app.loopOnce();
+  assert(result.failedCount == 0);
+  assert(reeflow::core::state::currentSystemState().modes.currentMode == TPA);
+
+  assert(context.app.requestMode(NORMAL) == ModeServiceResult::kSuccess);
+  assert(context.app.requestMode(MAINTENANCE) ==
+         ModeServiceResult::kSuccess);
+  context.timeSource.advanceMillis(600000);
+  result = context.app.loopOnce();
+  assert(result.failedCount == 0);
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         MAINTENANCE);
+}
+
+void testAtoDoesNotStartWhenModeGateBlocksAto() {
+  TestCoreAppContext context;
+  assert(context.app.setup());
+  auto atoConfig = context.configManager.ato();
+  atoConfig.enabled = true;
+  assert(context.configManager.updateAto(atoConfig));
+
+  auto waterLevel = reeflow::core::state::currentSystemState().waterLevel;
+  waterLevel.currentLevel = 0;
+  waterLevel.minimumLevel = 20;
+  waterLevel.maximumLevel = 80;
+  waterLevel.status = WaterLevelStatus::kNormal;
+  reeflow::core::state::updateWaterLevelState(waterLevel);
+
+  assert(context.app.requestMode(TPA) == ModeServiceResult::kSuccess);
+  context.timeSource.advanceMillis(1000);
+  const reeflow::core::scheduler::SchedulerRunResult result =
+      context.app.loopOnce();
+
+  assert(result.failedCount == 0);
+  assert(!reeflow::core::state::currentSystemState().ato.pumpRunning);
+  assert(!reeflow::core::state::currentSystemState().relays.atoPump.enabled);
+}
+
+void testModeTaskFailureIsReportedByScheduler() {
+  TestCoreAppContext context;
+  assert(context.app.setup());
+  assert(context.app.requestMode(FEEDING) == ModeServiceResult::kSuccess);
+  context.modeStore.simulateSaveFailure();
+
+  context.timeSource.advanceMillis(600000);
+  const reeflow::core::scheduler::SchedulerRunResult result =
+      context.app.loopOnce();
+
+  assert(result.failedCount == 1);
+  assert(reeflow::core::state::currentSystemState().modes.currentMode ==
+         NORMAL);
 }
 
 void testStateAndConfigEventsFlowDuringIntegration() {
@@ -218,9 +410,20 @@ void testStateAndConfigEventsFlowDuringIntegration() {
 int main() {
   testSetupInitializesCoreInOrder();
   testSetupAppliesRelaySafeStateWithoutRelayEvents();
+  testSetupWithNoSavedModeKeepsNormal();
+  testSetupRejectsInvalidSavedModeAndKeepsNormal();
+  testSetupRestoresSavedNormalWithoutRelayOn();
+  testSetupFallsBackFromSavedFeedingToNormal();
+  testSetupRestoresSavedTpaWithSafeEffects();
+  testSetupRestoresSavedMaintenanceWithoutRelayCommand();
   testLocalRelayApiAllowsManualCommandsAfterSetup();
   testRelaySafeStateFailureKeepsSetupFailedAndRelaysOff();
   testLoopFeedsWatchdogThroughScheduler();
+  testModeTaskRunsOnlyAfterConfiguredInterval();
+  testLocalModeApiSupportsAllCanonicalModes();
+  testModeSchedulerFinishesFeedingButNotManualModes();
+  testAtoDoesNotStartWhenModeGateBlocksAto();
+  testModeTaskFailureIsReportedByScheduler();
   testStateAndConfigEventsFlowDuringIntegration();
   return 0;
 }

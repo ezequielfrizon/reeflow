@@ -29,6 +29,9 @@ enum class EventType {
   kAtoTimeout,
   kAtoSensorOffline,
   kAtoRecovered,
+  kModeChanged,
+  kModeStarted,
+  kModeFinished,
 };
 
 enum class StateArea {

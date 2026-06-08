@@ -7,6 +7,7 @@
 #include "drivers/io/arduino_hardware_io.h"
 #include "drivers/sensors/ds18b20/ds18b20_temperature_sensor.h"
 #include "drivers/sensors/vl6180x/vl6180x_level_sensor.h"
+#include "modules/modes/mode_store.h"
 
 namespace reeflow::app {
 
@@ -18,10 +19,11 @@ CoreApp& defaultCoreApp() {
       drivers::arduinoI2cBus());
   static drivers::GpioRelayController relayController(
       drivers::arduinoGpioPort());
+  static modules::modes::VolatileModeStore modeStore;
   static CoreApp app(core::platform::arduinoCorePlatform(),
                      core::events::defaultEventBus(),
                      config::defaultConfigManager(), temperatureSensor,
-                     waterLevelSensor, relayController);
+                     waterLevelSensor, relayController, modeStore);
   return app;
 }
 

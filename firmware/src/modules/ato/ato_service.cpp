@@ -76,15 +76,25 @@ AtoService::AtoService(relays::RelayService& relayService,
                        const config::ConfigManager& configManager,
                        const core::platform::TimeSource& timeSource,
                        core::events::EventBus& eventBus,
-                       AtoModuleConfig moduleConfig)
+                       AtoModuleConfig moduleConfig,
+                       modes::ModeAutomationGate* modeAutomationGate)
     : relayService_(relayService),
       configManager_(configManager),
       timeSource_(timeSource),
       eventBus_(eventBus),
-      moduleConfig_(moduleConfig) {}
+      moduleConfig_(moduleConfig),
+      modeAutomationGate_(modeAutomationGate) {}
 
 AtoServiceResult AtoService::evaluateOnce() {
   const core::state::SystemState& state = core::state::currentSystemState();
+
+  const AtoServiceResult modeGateResult = applyModeGate(state);
+  if (modeGateResult != AtoServiceResult::kSuccess ||
+      (modeAutomationGate_ != nullptr &&
+       !modeAutomationGate_->isAutomationAllowed(modes::ModeAutomation::kAto))) {
+    return modeGateResult;
+  }
+
   AtoPolicyInput input = {};
   input.waterLevel = state.waterLevel;
   input.ato = state.ato;
@@ -108,6 +118,31 @@ AtoServiceResult AtoService::evaluateOnce() {
     publishEventForDecision(evaluation.decision);
   }
 
+  return AtoServiceResult::kSuccess;
+}
+
+AtoServiceResult AtoService::applyModeGate(
+    const core::state::SystemState& state) {
+  if (modeAutomationGate_ == nullptr ||
+      modeAutomationGate_->isAutomationAllowed(modes::ModeAutomation::kAto)) {
+    return AtoServiceResult::kSuccess;
+  }
+
+  if (!state.ato.pumpRunning && !state.relays.atoPump.enabled) {
+    return AtoServiceResult::kSuccess;
+  }
+
+  const RelayCommand command = {ATO_PUMP, RelayDesiredState::kOff,
+                                RelayCommandSource::kFailsafe};
+  const RelayCommandResult result = relayService_.applyCommand(command);
+  if (result != RelayCommandResult::kSuccess) {
+    return AtoServiceResult::kRelayCommandFailed;
+  }
+
+  core::state::AtoState nextAto = state.ato;
+  nextAto.pumpRunning = false;
+  nextAto.lastCompletion = timeSource_.uptimeMillis();
+  core::state::updateAtoState(nextAto);
   return AtoServiceResult::kSuccess;
 }
 

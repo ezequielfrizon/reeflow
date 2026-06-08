@@ -4,8 +4,11 @@
 #include "core/events/event_bus.h"
 #include "core/state/system_state.h"
 #include "fakes/fake_relay_controller.h"
+#include "fakes/fake_mode_automation_gate.h"
 #include "fakes/fake_time_source.h"
 #include "modules/ato/ato_service.h"
+#include "modules/modes/mode_automation_gate.h"
+#include "modules/modes/mode_types.h"
 #include "modules/relays/relay_service.h"
 #include "modules/relays/relay_types.h"
 
@@ -26,12 +29,15 @@ using reeflow::core::state::WaterLevelState;
 using reeflow::core::state::WaterLevelStatus;
 using reeflow::modules::ato::AtoService;
 using reeflow::modules::ato::AtoServiceResult;
+using reeflow::modules::ato::makeDefaultAtoModuleConfig;
+using reeflow::modules::modes::ModeAutomation;
 using reeflow::modules::relays::ATO_PUMP;
 using reeflow::modules::relays::RelayCommandResult;
 using reeflow::modules::relays::RelayDesiredState;
 using reeflow::modules::relays::RelayId;
 using reeflow::modules::relays::RelayService;
 using reeflow::test::fakes::FakeRelayController;
+using reeflow::test::fakes::FakeModeAutomationGate;
 using reeflow::test::fakes::FakeTimeSource;
 
 struct EventRecorder {
@@ -51,6 +57,7 @@ struct Fixture {
   EventBus eventBus;
   ConfigManager configManager;
   RelayService relayService;
+  FakeModeAutomationGate modeGate;
   AtoService atoService;
   EventRecorder atoStartEvents;
   EventRecorder atoStopEvents;
@@ -61,7 +68,8 @@ struct Fixture {
   Fixture()
       : configManager(eventBus),
         relayService(relayController, timeSource, eventBus),
-        atoService(relayService, configManager, timeSource, eventBus),
+        atoService(relayService, configManager, timeSource, eventBus,
+                   makeDefaultAtoModuleConfig(), &modeGate),
         atoStartEvents({}),
         atoStopEvents({}),
         atoTimeoutEvents({}),
@@ -88,6 +96,13 @@ AtoConfig enabledAtoConfig(ConfigManager& configManager) {
   config.timeoutMillis = 60000;
   config.cooldownMillis = 300000;
   return config;
+}
+
+void blockAtoByMode(Fixture& fixture) {
+  assert(fixture.modeGate.setAutomationBlocked(
+             ModeAutomation::kAto, true,
+             reeflow::modules::modes::TPA) ==
+         reeflow::modules::modes::ModeAutomationGateResult::kSuccess);
 }
 
 void enableAto(Fixture& fixture) {
@@ -205,6 +220,31 @@ void testLowLevelStartsPumpAndEmitsAtoStart() {
   assert(fixture.atoStartEvents.count == 1);
 }
 
+void testModeGateBlocksAtoStartWithoutChangingConfigOrWaterLevel() {
+  Fixture fixture;
+  enableAto(fixture);
+  fixture.timeSource.setUptimeMillis(10000);
+  setWaterLevel(19, WaterLevelStatus::kNormal);
+  blockAtoByMode(fixture);
+  const AtoConfig atoConfigBefore = fixture.configManager.ato();
+  const WaterLevelState waterLevelBefore =
+      reeflow::core::state::currentSystemState().waterLevel;
+
+  const auto result = fixture.atoService.evaluateOnce();
+
+  assert(result == AtoServiceResult::kSuccess);
+  assert(fixture.relayController.recordedCallCount() == 0);
+  assertAto(false, AtoStatus::kDisabled, false, 0, 0, 0);
+  assert(fixture.configManager.ato().enabled == atoConfigBefore.enabled);
+  assert(fixture.configManager.ato().minimumLevel ==
+         atoConfigBefore.minimumLevel);
+  assert(reeflow::core::state::currentSystemState().waterLevel.currentLevel ==
+         waterLevelBefore.currentLevel);
+  assert(reeflow::core::state::currentSystemState().waterLevel.status ==
+         waterLevelBefore.status);
+  assert(fixture.atoStartEvents.count == 0);
+}
+
 void testMaximumLevelStopsPumpAndEmitsAtoStop() {
   Fixture fixture;
   enableAto(fixture);
@@ -237,6 +277,34 @@ void testTimeoutStopsPumpByFailsafeAndEmitsAtoTimeout() {
   assertAto(true, AtoStatus::kTimeout, false, 10000, 70000, 1);
   assertAtoPumpRelay(false, RelaySource::kFailsafe);
   assert(fixture.atoTimeoutEvents.count == 1);
+}
+
+void testModeGateBlockedAtoTurnsRunningPumpOffByFailsafe() {
+  Fixture fixture;
+  enableAto(fixture);
+  fixture.timeSource.setUptimeMillis(30000);
+  setWaterLevel(30, WaterLevelStatus::kNormal);
+  setAto(true, AtoStatus::kRefilling, true, 10000, 0, 0);
+  setAtoPumpRelay(true, 10000, RelaySource::kAutomation);
+  fixture.relayController.setInitialState(ATO_PUMP, RelayDesiredState::kOn);
+  blockAtoByMode(fixture);
+  const WaterLevelState waterLevelBefore =
+      reeflow::core::state::currentSystemState().waterLevel;
+
+  const auto result = fixture.atoService.evaluateOnce();
+
+  assert(result == AtoServiceResult::kSuccess);
+  assert(fixture.relayController.recordedCallCount() == 1);
+  assert(fixture.relayController.recordedCall(0).relay == ATO_PUMP);
+  assert(fixture.relayController.recordedCall(0).desiredState ==
+         RelayDesiredState::kOff);
+  assertAto(true, AtoStatus::kRefilling, false, 10000, 30000, 0);
+  assertAtoPumpRelay(false, RelaySource::kFailsafe);
+  assert(reeflow::core::state::currentSystemState().waterLevel.currentLevel ==
+         waterLevelBefore.currentLevel);
+  assert(fixture.atoStartEvents.count == 0);
+  assert(fixture.atoStopEvents.count == 0);
+  assert(fixture.atoTimeoutEvents.count == 0);
 }
 
 void testRepeatedTimeoutDoesNotDuplicateEventOrCounter() {
@@ -395,8 +463,10 @@ int main() {
   testDisabledAtoUpdatesStatusWithoutPumpCommand();
   testNormalLevelDoesNotStartPump();
   testLowLevelStartsPumpAndEmitsAtoStart();
+  testModeGateBlocksAtoStartWithoutChangingConfigOrWaterLevel();
   testMaximumLevelStopsPumpAndEmitsAtoStop();
   testTimeoutStopsPumpByFailsafeAndEmitsAtoTimeout();
+  testModeGateBlockedAtoTurnsRunningPumpOffByFailsafe();
   testRepeatedTimeoutDoesNotDuplicateEventOrCounter();
   testSensorOfflineUpdatesAtoAndEmitsEvent();
   testSensorOfflineWithPumpOnUsesFailsafeOff();

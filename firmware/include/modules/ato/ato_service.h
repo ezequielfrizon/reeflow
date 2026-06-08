@@ -5,6 +5,7 @@
 #include "core/platform/time_source.h"
 #include "modules/ato/ato_config.h"
 #include "modules/ato/ato_policy.h"
+#include "modules/modes/mode_automation_gate.h"
 #include "modules/relays/relay_service.h"
 
 namespace reeflow::modules::ato {
@@ -21,12 +22,14 @@ class AtoService {
              const config::ConfigManager& configManager,
              const core::platform::TimeSource& timeSource,
              core::events::EventBus& eventBus,
-             AtoModuleConfig moduleConfig = makeDefaultAtoModuleConfig());
+             AtoModuleConfig moduleConfig = makeDefaultAtoModuleConfig(),
+             modes::ModeAutomationGate* modeAutomationGate = nullptr);
 
   AtoServiceResult evaluateOnce();
 
  private:
   AtoServiceResult applyRelayCommand(const AtoEvaluationResult& evaluation);
+  AtoServiceResult applyModeGate(const core::state::SystemState& state);
   void publishEventForDecision(AtoDecision decision);
 
   relays::RelayService& relayService_;
@@ -34,6 +37,7 @@ class AtoService {
   const core::platform::TimeSource& timeSource_;
   core::events::EventBus& eventBus_;
   AtoModuleConfig moduleConfig_;
+  modes::ModeAutomationGate* modeAutomationGate_;
 };
 
 bool runAtoServiceTask(void* context);
