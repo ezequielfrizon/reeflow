@@ -18,7 +18,13 @@ constexpr uint16_t kMaxPwmValue = 255;
 constexpr uint32_t kMaxTimerDurationSeconds = 86400;
 constexpr uint32_t kDefaultFeedingDurationSeconds = 600;
 constexpr uint16_t kDefaultMqttPort = 1883;
+constexpr uint16_t kDefaultMqttKeepAliveSeconds = 30;
+constexpr uint32_t kDefaultMqttConnectTimeoutMillis = 10000;
 constexpr uint32_t kDefaultMqttHeartbeatIntervalMillis = 30000;
+constexpr uint16_t kDefaultMqttMaxPayloadBytes = 512;
+constexpr uint8_t kDefaultMqttMaxOutboxMessages = 8;
+constexpr uint32_t kDefaultMqttInitialBackoffMillis = 1000;
+constexpr uint32_t kDefaultMqttMaxBackoffMillis = 60000;
 constexpr float kMaxTemperatureCalibrationOffset = 10.0F;
 constexpr int16_t kMaxWaterLevelCalibrationOffset = 1000;
 
@@ -151,11 +157,24 @@ bool sameWifi(const WifiConfig& left, const WifiConfig& right) {
 
 bool validMqtt(const MqttConfig& config) {
   if (!textIsTerminated(config.host, sizeof(config.host)) ||
-      !textIsTerminated(config.clientId, sizeof(config.clientId))) {
+      !textIsTerminated(config.clientId, sizeof(config.clientId)) ||
+      !textIsTerminated(config.username, sizeof(config.username)) ||
+      !textIsTerminated(config.password, sizeof(config.password)) ||
+      !textIsTerminated(config.topicPrefix, sizeof(config.topicPrefix))) {
     return false;
   }
 
-  return config.port > 0 && config.heartbeatIntervalMillis > 0 &&
+  const bool hasCredentials =
+      textIsPresent(config.username, sizeof(config.username)) &&
+      textIsPresent(config.password, sizeof(config.password));
+
+  return config.port > 0 && config.keepAliveSeconds > 0 &&
+         config.connectTimeoutMillis > 0 &&
+         config.heartbeatIntervalMillis > 0 &&
+         config.maxPayloadBytes > 0 && config.maxOutboxMessages > 0 &&
+         config.initialBackoffMillis > 0 &&
+         config.maxBackoffMillis >= config.initialBackoffMillis &&
+         (!config.credentialsRequired || hasCredentials) &&
          (!config.enabled ||
           (textIsPresent(config.host, sizeof(config.host)) &&
            textIsPresent(config.clientId, sizeof(config.clientId))));
@@ -166,7 +185,19 @@ bool sameMqtt(const MqttConfig& left, const MqttConfig& right) {
          sameText(left.host, right.host, sizeof(left.host)) &&
          left.port == right.port &&
          sameText(left.clientId, right.clientId, sizeof(left.clientId)) &&
-         left.heartbeatIntervalMillis == right.heartbeatIntervalMillis;
+         sameText(left.username, right.username, sizeof(left.username)) &&
+         sameText(left.password, right.password, sizeof(left.password)) &&
+         sameText(left.topicPrefix, right.topicPrefix,
+                  sizeof(left.topicPrefix)) &&
+         left.credentialsRequired == right.credentialsRequired &&
+         left.cleanSession == right.cleanSession &&
+         left.keepAliveSeconds == right.keepAliveSeconds &&
+         left.connectTimeoutMillis == right.connectTimeoutMillis &&
+         left.heartbeatIntervalMillis == right.heartbeatIntervalMillis &&
+         left.maxPayloadBytes == right.maxPayloadBytes &&
+         left.maxOutboxMessages == right.maxOutboxMessages &&
+         left.initialBackoffMillis == right.initialBackoffMillis &&
+         left.maxBackoffMillis == right.maxBackoffMillis;
 }
 
 bool validCalibrations(const CalibrationsConfig& config) {
@@ -220,8 +251,17 @@ ReeflowConfig makeDefaultReeflowConfig() {
 
   config.mqtt.enabled = false;
   config.mqtt.port = kDefaultMqttPort;
+  config.mqtt.topicPrefix[0] = '\0';
+  config.mqtt.credentialsRequired = false;
+  config.mqtt.cleanSession = true;
+  config.mqtt.keepAliveSeconds = kDefaultMqttKeepAliveSeconds;
+  config.mqtt.connectTimeoutMillis = kDefaultMqttConnectTimeoutMillis;
   config.mqtt.heartbeatIntervalMillis =
       kDefaultMqttHeartbeatIntervalMillis;
+  config.mqtt.maxPayloadBytes = kDefaultMqttMaxPayloadBytes;
+  config.mqtt.maxOutboxMessages = kDefaultMqttMaxOutboxMessages;
+  config.mqtt.initialBackoffMillis = kDefaultMqttInitialBackoffMillis;
+  config.mqtt.maxBackoffMillis = kDefaultMqttMaxBackoffMillis;
 
   config.calibrations.temperatureOffset = 0.0F;
   config.calibrations.waterLevelOffset = 0;

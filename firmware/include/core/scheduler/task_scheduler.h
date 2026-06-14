@@ -9,7 +9,7 @@
 
 namespace reeflow::core::scheduler {
 
-constexpr size_t kMaxScheduledTasks = 12;
+constexpr size_t kMaxScheduledTasks = 13;
 constexpr size_t kTaskNameMaxLength = 24;
 constexpr uint8_t kInvalidTaskId = 0;
 

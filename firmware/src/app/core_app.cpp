@@ -7,6 +7,8 @@
 #include "modules/temperature/temperature_service.h"
 #include "modules/water_level/water_level_config.h"
 #include "modules/water_level/water_level_service.h"
+#include "network/network_config.h"
+#include "network/network_events.h"
 
 namespace reeflow::app {
 namespace {
@@ -17,6 +19,12 @@ constexpr const char* kAtoTaskName = "ato";
 constexpr const char* kModeTaskName = "modes";
 constexpr const char* kLightingTaskName = "lighting";
 constexpr const char* kStorageFlushTaskName = "storage-flush";
+constexpr const char* kWifiTaskName = "network-wifi";
+constexpr const char* kNtpTaskName = "network-ntp";
+constexpr const char* kNetworkStatusTaskName = "network-status";
+constexpr const char* kNetworkHeartbeatTaskName = "network-heartbeat";
+constexpr const char* kMqttTaskName = "mqtt";
+constexpr const char* kAlertsTaskName = "alerts";
 
 config::LightingChannelConfig lightingChannelConfig(
     const modules::lighting::LightingChannelProfile& profileChannel) {
@@ -53,11 +61,21 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
                  modules::relays::RelayController& relayController,
                  modules::lighting::LightingPwmController& lightingController,
                  modules::modes::ModeStore& modeStore,
-                 storage::StorageService* storageService)
+                 storage::StorageService* storageService,
+                 network::WifiService* wifiService,
+                 network::NtpService* ntpService,
+                 network::NetworkStatusService* networkStatusService,
+                 network::NetworkHeartbeat* networkHeartbeat,
+                 mqtt::MqttService* mqttService)
     : platform_(platform),
       eventBus_(eventBus),
       config_(config),
       storageService_(storageService),
+      wifiService_(wifiService),
+      ntpService_(ntpService),
+      networkStatusService_(networkStatusService),
+      networkHeartbeat_(networkHeartbeat),
+      mqttService_(mqttService),
       logger_(platform_.logSink()),
       scheduler_(platform_.timeSource(), eventBus_, logger_),
       watchdog_(platform_.watchdogBackend(), platform_.timeSource(), logger_),
@@ -76,7 +94,16 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
       lightingProfile_(modules::lighting::makeDefaultLightingProfile()),
       lightingModuleConfig_(modules::lighting::makeDefaultLightingModuleConfig()),
       lightingService_(lightingController, config_, platform_.timeSource(),
-                       eventBus_, lightingProfile_, lightingModuleConfig_) {}
+                       eventBus_, lightingProfile_, lightingModuleConfig_),
+      alertHistory_(),
+      alertManager_(eventBus_, alertHistory_,
+                    alerts::makeDefaultAlertCooldownConfig()),
+      alertDetector_(alertManager_) {
+  if (mqttService_ != nullptr) {
+    mqttService_->setLogger(&logger_);
+  }
+  configureMqttCommandHandler();
+}
 
 bool CoreApp::setup() {
   core::state::setSystemStateEventBus(eventBus_);
@@ -114,6 +141,21 @@ bool CoreApp::setup() {
   }
 
   restorePersistedConfiguration();
+
+  if (wifiService_ != nullptr) {
+    const uint32_t nowMillis = platform_.timeSource().uptimeMillis();
+    if (!wifiService_->begin(nowMillis)) {
+      logger_.warning("network", "wifi adapter unavailable");
+    } else if (!config_.wifi().enabled || config_.wifi().ssid[0] == '\0') {
+      logger_.info("network", "wifi not configured");
+    } else {
+      logger_.info("network", "wifi configured");
+    }
+  }
+
+  if (mqttService_ != nullptr) {
+    mqttService_->begin(platform_.timeSource().uptimeMillis());
+  }
 
   const modules::modes::ModeServiceResult modeRestoreResult =
       modeService_.restoreModeFromStore();
@@ -163,6 +205,16 @@ bool CoreApp::setup() {
 
   if (!registerStorageFlushTask()) {
     logger_.error("core", "storage flush task failed");
+    return false;
+  }
+
+  if (!registerNetworkTasks()) {
+    logger_.error("core", "network task failed");
+    return false;
+  }
+
+  if (!registerAlertDetector()) {
+    logger_.error("core", "alerts task failed");
     return false;
   }
 
@@ -325,6 +377,213 @@ bool CoreApp::handleConfigChanged(const core::events::Event& event,
   return true;
 }
 
+bool CoreApp::handleAlertStateChanged(const core::events::Event& event,
+                                      void* context) {
+  if (context == nullptr) {
+    return false;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  app->alertDetector_.observeEvent(
+      event, core::state::currentSystemState(),
+      app->platform_.timeSource().uptimeMillis());
+  return true;
+}
+
+bool CoreApp::handleNetworkEvent(const core::events::Event& event,
+                                 void* context) {
+  if (context == nullptr || event.payload == nullptr ||
+      event.stateArea != core::events::StateArea::kNetwork) {
+    return false;
+  }
+
+  static_cast<CoreApp*>(context)->logNetworkEvent(
+      *static_cast<const network::NetworkEvent*>(event.payload));
+  return true;
+}
+
+bool CoreApp::runWifiTask(void* context) {
+  if (context == nullptr) {
+    return false;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  if (app->wifiService_ == nullptr) {
+    return true;
+  }
+
+  app->wifiService_->tick(app->platform_.timeSource().uptimeMillis());
+  return true;
+}
+
+bool CoreApp::runNtpTask(void* context) {
+  if (context == nullptr) {
+    return false;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  if (app->ntpService_ == nullptr) {
+    return true;
+  }
+
+  app->ntpService_->tick(app->platform_.timeSource().uptimeMillis());
+  return true;
+}
+
+bool CoreApp::runNetworkStatusTask(void* context) {
+  if (context == nullptr) {
+    return false;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  if (app->networkStatusService_ == nullptr) {
+    return true;
+  }
+
+  network::NtpStatus ntpStatus = {};
+  if (app->ntpService_ != nullptr) {
+    ntpStatus = app->ntpService_->snapshot().status;
+  }
+  app->networkStatusService_->tick(app->platform_.timeSource().uptimeMillis(),
+                                   ntpStatus);
+  return true;
+}
+
+bool CoreApp::runNetworkHeartbeatTask(void* context) {
+  if (context == nullptr) {
+    return false;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  if (app->networkHeartbeat_ == nullptr) {
+    return true;
+  }
+
+  app->networkHeartbeat_->tick(app->platform_.timeSource().uptimeMillis());
+  return true;
+}
+
+bool CoreApp::runMqttTask(void* context) {
+  if (context == nullptr) {
+    return false;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  if (app->mqttService_ == nullptr) {
+    return true;
+  }
+
+  app->mqttService_->tick(app->platform_.timeSource().uptimeMillis());
+  return true;
+}
+
+bool CoreApp::runAlertDetectorTask(void* context) {
+  if (context == nullptr) {
+    return false;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  app->alertDetector_.evaluateSnapshot(
+      core::state::currentSystemState(),
+      app->platform_.timeSource().uptimeMillis());
+  return true;
+}
+
+mqtt::MqttCommandResult CoreApp::handleMqttModeCommand(
+    modules::modes::OperationalMode mode, void* context) {
+  if (context == nullptr) {
+    return mqtt::MqttCommandResult::kInternalError;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  const modules::modes::ModeServiceResult result = app->requestMode(mode);
+  switch (result) {
+    case modules::modes::ModeServiceResult::kSuccess:
+      return mqtt::MqttCommandResult::kAccepted;
+    case modules::modes::ModeServiceResult::kInvalidCommand:
+    case modules::modes::ModeServiceResult::kInvalidConfig:
+      return mqtt::MqttCommandResult::kInvalidPayload;
+    case modules::modes::ModeServiceResult::kEffectsFailed:
+    case modules::modes::ModeServiceResult::kAutomationGateFailed:
+      return mqtt::MqttCommandResult::kLocalConflict;
+    case modules::modes::ModeServiceResult::kStoreFailed:
+      return mqtt::MqttCommandResult::kInternalError;
+  }
+
+  return mqtt::MqttCommandResult::kInternalError;
+}
+
+mqtt::MqttCommandResult CoreApp::handleMqttRelayCommand(
+    modules::relays::RelayId relay,
+    modules::relays::RelayDesiredState desiredState, void* context) {
+  if (context == nullptr) {
+    return mqtt::MqttCommandResult::kInternalError;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  const modules::relays::RelayCommand command = {
+      relay, desiredState, core::state::RelaySource::kMqtt};
+  const modules::relays::RelayCommandResult result =
+      app->relayService_.applyCommand(command);
+  switch (result) {
+    case modules::relays::RelayCommandResult::kSuccess:
+      return mqtt::MqttCommandResult::kAccepted;
+    case modules::relays::RelayCommandResult::kUnknownRelay:
+      return mqtt::MqttCommandResult::kInvalidPayload;
+    case modules::relays::RelayCommandResult::kInvalidContract:
+      return mqtt::MqttCommandResult::kRejected;
+    case modules::relays::RelayCommandResult::kControllerFailure:
+      return mqtt::MqttCommandResult::kInternalError;
+  }
+
+  return mqtt::MqttCommandResult::kInternalError;
+}
+
+mqtt::MqttCommandResult CoreApp::handleMqttLightingCommand(
+    modules::lighting::LightingChannel channel, uint16_t duty,
+    void* context) {
+  if (context == nullptr) {
+    return mqtt::MqttCommandResult::kInternalError;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  const modules::lighting::LightingServiceResult result =
+      app->setLightingManualDuty(channel, duty);
+  switch (result) {
+    case modules::lighting::LightingServiceResult::kSuccess:
+      return mqtt::MqttCommandResult::kAccepted;
+    case modules::lighting::LightingServiceResult::kInvalidCommand:
+    case modules::lighting::LightingServiceResult::kInvalidConfig:
+    case modules::lighting::LightingServiceResult::kInvalidProfile:
+      return mqtt::MqttCommandResult::kInvalidPayload;
+    case modules::lighting::LightingServiceResult::kControllerFailure:
+      return mqtt::MqttCommandResult::kInternalError;
+  }
+
+  return mqtt::MqttCommandResult::kInternalError;
+}
+
+mqtt::MqttCommandResult CoreApp::handleMqttConfigCommand(
+    const mqtt::MqttCommandConfigRequest& request, void* context) {
+  if (context == nullptr) {
+    return mqtt::MqttCommandResult::kInternalError;
+  }
+
+  CoreApp* app = static_cast<CoreApp*>(context);
+  config::MqttConfig mqttConfig = app->config_.mqtt();
+  if (request.updateMqttHeartbeat) {
+    mqttConfig.heartbeatIntervalMillis =
+        request.mqttHeartbeatIntervalMillis;
+  }
+  if (request.updateMqttMaxPayload) {
+    mqttConfig.maxPayloadBytes = request.mqttMaxPayloadBytes;
+  }
+
+  return app->config_.updateMqtt(mqttConfig)
+             ? mqtt::MqttCommandResult::kAccepted
+             : mqtt::MqttCommandResult::kRejected;
+}
+
 bool CoreApp::registerStorageFlushTask() {
   if (storageService_ == nullptr) {
     return true;
@@ -337,6 +596,100 @@ bool CoreApp::registerStorageFlushTask() {
       kStorageFlushTaskName, kStorageFlushIntervalMillis,
       storage::runStorageFlushTask, storageService_);
   return storageTaskId != core::scheduler::kInvalidTaskId;
+}
+
+void CoreApp::configureMqttCommandHandler() {
+  if (mqttService_ == nullptr) {
+    return;
+  }
+
+  mqtt::MqttCommandCallbacks callbacks = {};
+  callbacks.mode = CoreApp::handleMqttModeCommand;
+  callbacks.relay = CoreApp::handleMqttRelayCommand;
+  callbacks.lighting = CoreApp::handleMqttLightingCommand;
+  callbacks.config = CoreApp::handleMqttConfigCommand;
+  callbacks.context = this;
+  mqttService_->configureCommandCallbacks(callbacks);
+}
+
+bool CoreApp::registerNetworkTasks() {
+  if (wifiService_ == nullptr && ntpService_ == nullptr &&
+      networkStatusService_ == nullptr && networkHeartbeat_ == nullptr &&
+      mqttService_ == nullptr) {
+    return true;
+  }
+
+  eventBus_.subscribe(core::events::EventType::kWifiConnected,
+                      CoreApp::handleNetworkEvent, this);
+  eventBus_.subscribe(core::events::EventType::kWifiDisconnected,
+                      CoreApp::handleNetworkEvent, this);
+  eventBus_.subscribe(core::events::EventType::kWifiReconnecting,
+                      CoreApp::handleNetworkEvent, this);
+  eventBus_.subscribe(core::events::EventType::kWifiReconnectFailed,
+                      CoreApp::handleNetworkEvent, this);
+  eventBus_.subscribe(core::events::EventType::kNtpSynced,
+                      CoreApp::handleNetworkEvent, this);
+  eventBus_.subscribe(core::events::EventType::kNtpSyncFailed,
+                      CoreApp::handleNetworkEvent, this);
+  eventBus_.subscribe(core::events::EventType::kNetworkHeartbeat,
+                      CoreApp::handleNetworkEvent, this);
+
+  const network::NetworkConfig networkConfig =
+      network::makeDefaultNetworkConfig();
+
+  if (wifiService_ != nullptr &&
+      scheduler_.registerTask(kWifiTaskName,
+                              networkConfig.reconnectInitialBackoffMillis,
+                              CoreApp::runWifiTask, this) ==
+          core::scheduler::kInvalidTaskId) {
+    return false;
+  }
+
+  if (networkStatusService_ != nullptr &&
+      scheduler_.registerTask(kNetworkStatusTaskName,
+                              networkConfig.statusUpdateIntervalMillis,
+                              CoreApp::runNetworkStatusTask, this) ==
+          core::scheduler::kInvalidTaskId) {
+    return false;
+  }
+
+  if (ntpService_ != nullptr &&
+      scheduler_.registerTask(kNtpTaskName,
+                              networkConfig.statusUpdateIntervalMillis,
+                              CoreApp::runNtpTask, this) ==
+          core::scheduler::kInvalidTaskId) {
+    return false;
+  }
+
+  if (networkHeartbeat_ != nullptr &&
+      scheduler_.registerTask(kNetworkHeartbeatTaskName,
+                              networkConfig.heartbeatIntervalMillis,
+                              CoreApp::runNetworkHeartbeatTask, this) ==
+          core::scheduler::kInvalidTaskId) {
+    return false;
+  }
+
+  if (mqttService_ != nullptr &&
+      scheduler_.registerTask(kMqttTaskName,
+                              mqtt::kDefaultMqttInitialBackoffMillis,
+                              CoreApp::runMqttTask, this) ==
+          core::scheduler::kInvalidTaskId) {
+    return false;
+  }
+
+  logger_.info("network", "tasks registered");
+  return true;
+}
+
+bool CoreApp::registerAlertDetector() {
+  alertDetector_.reset();
+  eventBus_.subscribe(core::events::EventType::kSystemStateChanged,
+                      CoreApp::handleAlertStateChanged, this);
+
+  return scheduler_.registerTask(kAlertsTaskName,
+                                 kAlertsEvaluationIntervalMillis,
+                                 CoreApp::runAlertDetectorTask, this) !=
+         core::scheduler::kInvalidTaskId;
 }
 
 void CoreApp::restorePersistedConfiguration() {
@@ -384,6 +737,32 @@ void CoreApp::syncLightingPersistedState() {
   lightingPersistedState_.profiles[0] = lightingProfile_;
   lightingPersistedState_.profileCount = 1;
   lightingPersistedState_.currentProfileIndex = 0;
+}
+
+void CoreApp::logNetworkEvent(const network::NetworkEvent& event) {
+  switch (event.type) {
+    case network::NetworkEventType::kWifiConnected:
+      logger_.info("network", "wifi connected");
+      break;
+    case network::NetworkEventType::kWifiDisconnected:
+      logger_.warning("network", "wifi disconnected");
+      break;
+    case network::NetworkEventType::kWifiReconnecting:
+      logger_.info("network", "wifi reconnecting");
+      break;
+    case network::NetworkEventType::kWifiReconnectFailed:
+      logger_.warning("network", "wifi reconnect failed");
+      break;
+    case network::NetworkEventType::kNtpSynced:
+      logger_.info("network", "ntp synced");
+      break;
+    case network::NetworkEventType::kNtpSyncFailed:
+      logger_.warning("network", "ntp sync failed");
+      break;
+    case network::NetworkEventType::kNetworkHeartbeat:
+      logger_.debug("network", "heartbeat");
+      break;
+  }
 }
 
 }  // namespace reeflow::app

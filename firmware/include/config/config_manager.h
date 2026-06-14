@@ -11,6 +11,9 @@ constexpr uint8_t kMaxWifiSsidLength = 32;
 constexpr uint8_t kMaxWifiPasswordLength = 64;
 constexpr uint8_t kMaxMqttHostLength = 64;
 constexpr uint8_t kMaxMqttClientIdLength = 32;
+constexpr uint8_t kMaxMqttUsernameLength = 32;
+constexpr uint8_t kMaxMqttPasswordLength = 64;
+constexpr uint8_t kMaxMqttTopicPrefixLength = 32;
 
 struct TemperatureConfig {
   float targetTemperature;
@@ -69,7 +72,18 @@ struct MqttConfig {
   char host[kMaxMqttHostLength + 1];
   uint16_t port;
   char clientId[kMaxMqttClientIdLength + 1];
+  char username[kMaxMqttUsernameLength + 1];
+  char password[kMaxMqttPasswordLength + 1];
+  char topicPrefix[kMaxMqttTopicPrefixLength + 1];
+  bool credentialsRequired;
+  bool cleanSession;
+  uint16_t keepAliveSeconds;
+  uint32_t connectTimeoutMillis;
   uint32_t heartbeatIntervalMillis;
+  uint16_t maxPayloadBytes;
+  uint8_t maxOutboxMessages;
+  uint32_t initialBackoffMillis;
+  uint32_t maxBackoffMillis;
 };
 
 struct CalibrationsConfig {

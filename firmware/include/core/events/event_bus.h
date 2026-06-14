@@ -5,7 +5,7 @@
 
 namespace reeflow::core::events {
 
-constexpr size_t kMaxEventSubscriptions = 12;
+constexpr size_t kMaxEventSubscriptions = 18;
 constexpr uint8_t kInvalidSubscriptionId = 0;
 
 enum class EventType {
@@ -38,6 +38,20 @@ enum class EventType {
   kConfigSaved,
   kConfigRestored,
   kConfigReset,
+  kWifiConnected,
+  kWifiDisconnected,
+  kWifiReconnecting,
+  kWifiReconnectFailed,
+  kNtpSynced,
+  kNtpSyncFailed,
+  kNetworkHeartbeat,
+  kMqttConnected,
+  kMqttDisconnected,
+  kMqttReconnected,
+  kAlertRaised,
+  kAlertRecovered,
+  kAlertCooldownSuppressed,
+  kAlertHistoryRecorded,
 };
 
 enum class StateArea {

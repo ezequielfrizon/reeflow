@@ -53,6 +53,7 @@ constexpr bool isKnownRelay(RelayId relay) {
 constexpr bool isLocalFirmwareRelayCommandSource(
     RelayCommandSource source) {
   return source == RelayCommandSource::kLocal ||
+         source == RelayCommandSource::kMqtt ||
          source == RelayCommandSource::kAutomation ||
          source == RelayCommandSource::kFailsafe;
 }
