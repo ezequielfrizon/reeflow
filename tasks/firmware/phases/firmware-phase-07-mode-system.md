@@ -26,7 +26,7 @@ O modo `MAINTENANCE` deve permitir desligamentos manuais e suspender regras nao 
 
 Eventos `MODE_CHANGED`, `MODE_STARTED` e `MODE_FINISHED` devem ser eventos locais do firmware nesta fase. Eles podem servir como materia-prima futura para MQTT, historico, alertas, cloud ou aplicativo, mas nao devem publicar MQTT, persistir historico, criar alertas centralizados ou enviar notificacoes nesta fase.
 
-Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` deve ser alterado.
+Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` deve ser alterado.
 
 ## Estrutura Recomendada
 
@@ -174,7 +174,7 @@ Esta tarefa nao deve implementar a politica completa de transicao, nao deve atua
 - O fake permite inspecionar o ultimo modo salvo.
 - O build real do firmware nao depende de fakes ou mocks.
 - Nenhum comportamento funcional de troca de modo e iniciado nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -289,7 +289,7 @@ A politica deve priorizar seguranca local: se um modo exigir ATO seguro/desligad
 - Efeitos de entrada, permanencia e saida sao diferenciados.
 - A politica nao cria novos estados em `system.modes`.
 - A politica nao cria novos estados em `system.ato`.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -400,7 +400,7 @@ Esta tarefa nao deve atualizar `system.modes`, nao deve emitir eventos `MODE_*`,
 - A tarefa nao salva modo atual.
 - A tarefa nao registra scheduler.
 - Nenhuma funcionalidade de iluminacao, NVS real, MQTT, Alert Manager, cloud ou aplicativo e implementada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -515,7 +515,7 @@ O servico nao deve alterar `temperature`, `waterLevel`, `lighting`, `network`, `
 - Retorno automatico de `FEEDING` atualiza modo para `NORMAL`.
 - Retorno automatico de `FEEDING` nao religa Recalque automaticamente.
 - O servico nao implementa iluminacao, NVS real, MQTT, Alert Manager, cloud, app ou historico.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -619,7 +619,7 @@ Esta tarefa nao deve inicializar MQTT, Wi-Fi, Alert Manager, iluminacao, cloud, 
 - Nenhuma NVS Preferences real e implementada nesta tarefa.
 - Nenhuma politica de gravacoes em flash e implementada nesta tarefa.
 - Nenhuma funcionalidade de MQTT, Wi-Fi, Alert Manager, iluminacao, cloud ou app e inicializada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -726,7 +726,7 @@ Esta tarefa nao deve inicializar iluminacao da Fase 8, NVS definitivo da Fase 9,
 - O Watchdog continua sendo alimentado conforme a Fase 2.
 - O build real nao depende de fake store, fake effects, fake automation gate ou fake tempo.
 - Nenhuma funcionalidade de iluminacao, NVS real, Wi-Fi, MQTT, Alert Manager, cloud ou aplicativo e inicializada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -792,7 +792,7 @@ Qualquer validacao real com reles, bomba, sensores, aquario, agua, TPA real, ali
 - `firmware/src/modules/ato/`
 - `firmware/src/app/`
 - `firmware/platformio.ini`, somente se necessario para ambiente de teste
-- `tasks/firmware-phase-07-mode-system.md`
+- `tasks/firmware/phases/firmware-phase-07-mode-system.md`
 
 ### Criterios de aceitacao
 
@@ -840,7 +840,7 @@ Qualquer validacao real com reles, bomba, sensores, aquario, agua, TPA real, ali
 - Revisao de escopo confirma que comandos remotos nao foram implementados.
 - Revisao de escopo confirma que nenhum GPIO direto foi usado pelo modulo de modos.
 - Revisao de escopo confirma que nenhum driver novo de atuador foi criado para modos.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -859,5 +859,5 @@ Qualquer validacao real com reles, bomba, sensores, aquario, agua, TPA real, ali
 - Confirmar que o ATO consulta o gate de automacoes por modo antes de acionar a bomba.
 - Confirmar que nenhum teste ou implementacao inicializa iluminacao, NVS real, Wi-Fi, MQTT, Alert Manager, cloud ou app.
 - Confirmar que nenhum teste ou implementacao implementa comandos remotos.
-- Confirmar que nenhum teste ou implementacao altera `architecture/`, `specs/` ou `tasks/firmware-master-plan.md`.
+- Confirmar que nenhum teste ou implementacao altera `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md`.
 - Confirmar por revisao que funcionalidades de fases posteriores nao foram iniciadas.

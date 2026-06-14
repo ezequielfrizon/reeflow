@@ -16,6 +16,7 @@ constexpr const char* kWaterLevelTaskName = "water-level";
 constexpr const char* kAtoTaskName = "ato";
 constexpr const char* kModeTaskName = "modes";
 constexpr const char* kLightingTaskName = "lighting";
+constexpr const char* kStorageFlushTaskName = "storage-flush";
 
 config::LightingChannelConfig lightingChannelConfig(
     const modules::lighting::LightingChannelProfile& profileChannel) {
@@ -51,10 +52,12 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
                  modules::water_level::WaterLevelSensor& waterLevelSensor,
                  modules::relays::RelayController& relayController,
                  modules::lighting::LightingPwmController& lightingController,
-                 modules::modes::ModeStore& modeStore)
+                 modules::modes::ModeStore& modeStore,
+                 storage::StorageService* storageService)
     : platform_(platform),
       eventBus_(eventBus),
       config_(config),
+      storageService_(storageService),
       logger_(platform_.logSink()),
       scheduler_(platform_.timeSource(), eventBus_, logger_),
       watchdog_(platform_.watchdogBackend(), platform_.timeSource(), logger_),
@@ -69,6 +72,7 @@ CoreApp::CoreApp(core::platform::CorePlatform& platform,
       atoService_(relayService_, config_, platform_.timeSource(), eventBus_,
                   modules::ato::makeDefaultAtoModuleConfig(),
                   &modeAutomationGate_),
+      lightingPersistedState_({}),
       lightingProfile_(modules::lighting::makeDefaultLightingProfile()),
       lightingModuleConfig_(modules::lighting::makeDefaultLightingModuleConfig()),
       lightingService_(lightingController, config_, platform_.timeSource(),
@@ -79,6 +83,7 @@ bool CoreApp::setup() {
   core::state::resetSystemState();
   config_.loadDefaults();
   lightingProfile_ = modules::lighting::makeDefaultLightingProfile();
+  syncLightingPersistedState();
   lightingService_.setActiveProfile(lightingProfile_);
   if (!config_.updateLighting(lightingConfigFromProfile(
           lightingProfile_, core::state::LightingMode::kManual))) {
@@ -107,6 +112,8 @@ bool CoreApp::setup() {
     logger_.error("core", "relay safe state failed");
     return false;
   }
+
+  restorePersistedConfiguration();
 
   const modules::modes::ModeServiceResult modeRestoreResult =
       modeService_.restoreModeFromStore();
@@ -151,6 +158,11 @@ bool CoreApp::setup() {
       modules::modes::runModeServiceTask, &modeService_);
   if (modeTaskId == core::scheduler::kInvalidTaskId) {
     logger_.error("core", "mode task failed");
+    return false;
+  }
+
+  if (!registerStorageFlushTask()) {
+    logger_.error("core", "storage flush task failed");
     return false;
   }
 
@@ -262,6 +274,7 @@ modules::lighting::LightingServiceResult CoreApp::setLightingProfile(
 
   lightingProfile_ = profile;
   lightingService_.setActiveProfile(lightingProfile_);
+  syncLightingPersistedState();
   if (!config_.updateLighting(
           lightingConfigFromProfile(lightingProfile_, config_.lighting().mode))) {
     return modules::lighting::LightingServiceResult::kInvalidConfig;
@@ -299,6 +312,78 @@ core::scheduler::TaskScheduler& CoreApp::scheduler() {
 
 core::watchdog::WatchdogService& CoreApp::watchdog() {
   return watchdog_;
+}
+
+bool CoreApp::handleConfigChanged(const core::events::Event& event,
+                                  void* context) {
+  if (context == nullptr ||
+      event.type != core::events::EventType::kConfigChanged) {
+    return false;
+  }
+
+  static_cast<CoreApp*>(context)->trackConfigChange(event.configDomain);
+  return true;
+}
+
+bool CoreApp::registerStorageFlushTask() {
+  if (storageService_ == nullptr) {
+    return true;
+  }
+
+  eventBus_.subscribe(core::events::EventType::kConfigChanged,
+                      CoreApp::handleConfigChanged, this);
+
+  const uint8_t storageTaskId = scheduler_.registerTask(
+      kStorageFlushTaskName, kStorageFlushIntervalMillis,
+      storage::runStorageFlushTask, storageService_);
+  return storageTaskId != core::scheduler::kInvalidTaskId;
+}
+
+void CoreApp::restorePersistedConfiguration() {
+  if (storageService_ == nullptr) {
+    return;
+  }
+
+  const uint32_t nowMillis = platform_.timeSource().uptimeMillis();
+  storageService_->restoreWifi(config_, nowMillis);
+  storageService_->restoreMqtt(config_, nowMillis);
+  storageService_->restoreTemperature(config_, nowMillis);
+  storageService_->restoreAto(config_, nowMillis);
+  storageService_->restoreTimers(config_, nowMillis);
+  storageService_->restoreCalibrations(config_, nowMillis);
+
+  if (storageService_->restoreLighting(config_, lightingPersistedState_,
+                                       nowMillis) ==
+      storage::StorageResult::kSuccess) {
+    lightingProfile_ =
+        lightingPersistedState_
+            .profiles[lightingPersistedState_.currentProfileIndex];
+    lightingService_.setActiveProfile(lightingProfile_);
+  } else {
+    syncLightingPersistedState();
+  }
+}
+
+void CoreApp::trackConfigChange(core::events::ConfigDomain domain) {
+  if (storageService_ == nullptr) {
+    return;
+  }
+
+  if (domain == core::events::ConfigDomain::kLighting) {
+    syncLightingPersistedState();
+    storageService_->markLightingChanged(lightingPersistedState_);
+    return;
+  }
+
+  storageService_->markConfigChanged(config_, domain);
+}
+
+void CoreApp::syncLightingPersistedState() {
+  lightingPersistedState_ = {};
+  lightingPersistedState_.config = config_.lighting();
+  lightingPersistedState_.profiles[0] = lightingProfile_;
+  lightingPersistedState_.profileCount = 1;
+  lightingPersistedState_.currentProfileIndex = 0;
 }
 
 }  // namespace reeflow::app

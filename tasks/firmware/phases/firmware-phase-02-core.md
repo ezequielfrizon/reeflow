@@ -14,7 +14,7 @@ Nao implementar leitura real de sensores, automacao ATO, controle funcional de r
 
 O Config Manager desta fase deve operar com defaults, validacao estrutural e armazenamento em memoria. A persistencia em NVS Preferences fica reservada para a Fase 9.
 
-Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` deve ser alterado.
+Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` deve ser alterado.
 
 ## Estrutura Recomendada
 
@@ -92,7 +92,7 @@ Esta tarefa tambem deve preparar a estrutura `src/core/platform/` e `test/fakes/
 - O build real do firmware nao depende de fakes ou mocks.
 - `main.cpp` permanece como orquestrador minimo.
 - Nenhum modulo funcional das fases 3 a 16 e implementado.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -482,7 +482,7 @@ Esta tarefa tambem deve atuar como gate final de contrato da Fase 2, consolidand
 - Existe ao menos um teste de integracao da aplicacao de core.
 - O build real do firmware nao depende de fakes ou mocks.
 - Nenhum sensor, rele funcional, ATO, modo, iluminacao, Wi-Fi, MQTT, cloud, app, NVS ou resiliencia futura e inicializado.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 

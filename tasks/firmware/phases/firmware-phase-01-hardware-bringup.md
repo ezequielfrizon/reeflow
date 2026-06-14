@@ -79,7 +79,7 @@ firmware/
 - O projeto PlatformIO continua compilavel apos a criacao da estrutura.
 - Mocks e fakes ficam restritos a `firmware/test/` ou a configuracoes de teste, sem dependencia no firmware final de bring-up.
 - Nenhum modulo funcional das fases futuras e implementado.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -486,7 +486,7 @@ Esta tarefa nao deve alterar arquitetura, specs ou o plano mestre. Tambem nao de
 - O relatorio usa exatamente `Pendente para Hardware Validation` para todos os campos que exigem validacao fisica futura.
 - O relatorio nao afirma PASS fisico, medicao real ou validacao real que nao tenha ocorrido.
 - Nenhum System State, Event Bus, Config Manager, Task Scheduler, Logger, Watchdog, persistencia, Wi-Fi, MQTT, alertas, modos operacionais, ATO automatico, leitura DS18B20, I2C/VL6180X ou curvas de iluminacao e implementado nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -865,7 +865,7 @@ Criar um template de validacao contendo data, placa usada, resultado de boot, es
 - O template inclui endereco I2C esperado do VL6180X.
 - Campos que exigem hardware fisico iniciam como `Pendente para Hardware Validation`.
 - O template nao exige PASS/FAIL real para concluir a Fase 1.
-- O template nao altera `architecture/`, `specs/` ou `tasks/firmware-master-plan.md`.
+- O template nao altera `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md`.
 
 ### Criterios de teste
 

@@ -16,7 +16,7 @@ Os limites de temperatura devem usar a configuracao em memoria existente da Fase
 
 O nome canonico dos estados no firmware deve seguir `specs/system-state-spec.md`: `NORMAL`, `HIGH`, `LOW` e `SENSOR_OFFLINE`. A nomenclatura da spec de temperatura `ALTA` e `BAIXA` deve ser tratada como equivalente conceitual de `HIGH` e `LOW`, sem alterar specs.
 
-Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` deve ser alterado.
+Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` deve ser alterado.
 
 ## Estrutura Recomendada
 
@@ -102,7 +102,7 @@ Esta tarefa nao deve implementar leitura real periodica, nao deve atualizar Syst
 - O fake ou mock permite controlar resultados e sequencias de resultados em testes sem hardware.
 - O build real do firmware nao depende de fakes ou mocks.
 - Nenhum comportamento funcional de leitura periodica e iniciado nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -229,7 +229,7 @@ Esta tarefa tambem deve declarar os contratos locais de eventos de temperatura e
 - Existem contratos locais para `TEMPERATURE_UPDATED`, `TEMPERATURE_HIGH`, `TEMPERATURE_LOW`, `TEMPERATURE_SENSOR_OFFLINE` e `TEMPERATURE_SENSOR_RECOVERED`.
 - Eventos de temperatura nao publicam MQTT, nao criam alertas centralizados com cooldown e nao persistem historico.
 - A regra e deterministica e testavel sem hardware.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -392,7 +392,7 @@ Esta tarefa nao deve inicializar MQTT, NVS, Alert Manager, reles, ATO, modos, il
 - O Watchdog continua sendo alimentado conforme a Fase 2.
 - O build real nao depende de fake sensor ou fake tempo.
 - Nenhuma funcionalidade de MQTT, NVS, Alert Manager, reles, ATO, modos ou iluminacao e inicializada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -440,7 +440,7 @@ Tambem deve haver uma revisao de escopo confirmando que a Fase 3 nao implementou
 - `firmware/src/drivers/sensors/ds18b20/`
 - `firmware/src/app/`
 - `firmware/platformio.ini`, somente se necessario para ambiente de teste
-- `tasks/firmware-phase-03-temperature-sensor.md`
+- `tasks/firmware/phases/firmware-phase-03-temperature-sensor.md`
 
 ### Criterios de aceitacao
 
@@ -458,7 +458,7 @@ Tambem deve haver uma revisao de escopo confirmando que a Fase 3 nao implementou
 - Leitura periodica de 5000 ms e validada por fake de tempo.
 - Nao bloqueio do loop principal durante leitura/conversao e validado por teste automatizado ou revisao objetiva.
 - Nenhum teste fisico e criterio de conclusao da Fase 3.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 

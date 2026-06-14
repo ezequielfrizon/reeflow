@@ -26,7 +26,7 @@ O modulo ATO nao possui driver proprio de bomba. A bomba ATO e representada some
 
 Durante controle automatico bem sucedido, o invariant esperado e `ato.pumpRunning == relays.atoPump.enabled`. Qualquer divergencia detectada entre o bloco `ato` e o estado do Rele 3 deve ser tratada como condicao de reconciliacao segura, priorizando bomba desligada por fail-safe quando houver duvida.
 
-Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` deve ser alterado.
+Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` deve ser alterado.
 
 ## Estrutura Recomendada
 
@@ -150,7 +150,7 @@ Esta tarefa nao deve implementar a maquina de estado completa, nao deve validar 
 - `MQTT` e `APP` nao sao implementados como entrada de comando nesta fase.
 - Nenhum driver de bomba ATO e criado.
 - Nenhum comportamento funcional de reposicao e iniciado nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -225,7 +225,7 @@ Essa tarefa nao deve implementar NVS Preferences, restauracao pos-reboot, MQTT, 
 - Configuracao invalida exige bomba desligada quando a bomba estiver ligada.
 - Nenhuma persistencia NVS e implementada.
 - Nenhuma funcionalidade de MQTT, Alert Manager, modos, cloud ou app e implementada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -340,7 +340,7 @@ A protecao contra ciclos excessivos desta fase deve ser implementada sem criar n
 - A recuperacao nao liga a bomba no mesmo passo.
 - A politica nao altera `waterLevel`, `relays`, `modes`, `network`, `alerts` ou `systemHealth`.
 - A politica nao implementa MQTT, NVS, Alert Manager, modos, cloud ou aplicativo.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -471,7 +471,7 @@ O servico nao deve atualizar `waterLevel`; esse bloco pertence a Fase 4. O servi
 - O servico nao altera `waterLevel`.
 - O servico nao altera `temperature`, `lighting`, `modes`, `network`, `alerts` ou `systemHealth`.
 - O servico nao implementa MQTT, NVS, Alert Manager, modos, cloud, app ou historico.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -579,7 +579,7 @@ Esta tarefa nao deve inicializar MQTT, NVS, Alert Manager, modos, iluminacao, cl
 - O Watchdog continua sendo alimentado conforme a Fase 2.
 - O build real nao depende de fake relay controller, fake sensor ou fake tempo.
 - Nenhuma funcionalidade de MQTT, NVS, Alert Manager, modos, iluminacao, cloud ou aplicativo e inicializada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -637,7 +637,7 @@ Qualquer validacao real com sensor, bomba, rele, agua, vazao, sump, reservatorio
 - `firmware/src/modules/relays/`
 - `firmware/src/app/`
 - `firmware/platformio.ini`, somente se necessario para ambiente de teste
-- `tasks/firmware-phase-06-ato-system.md`
+- `tasks/firmware/phases/firmware-phase-06-ato-system.md`
 
 ### Criterios de aceitacao
 
@@ -685,7 +685,7 @@ Qualquer validacao real com sensor, bomba, rele, agua, vazao, sump, reservatorio
 - Revisao de escopo confirma que nao ha leitura bruta do VL6180X no modulo ATO.
 - Revisao de escopo confirma que o modulo ATO nao altera `waterLevel`.
 - Revisao de escopo confirma que nao ha `firmware/src/drivers/ato/` ou driver equivalente de bomba ATO.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -702,5 +702,5 @@ Qualquer validacao real com sensor, bomba, rele, agua, vazao, sump, reservatorio
 - Confirmar que nenhum teste ou implementacao inicializa MQTT, NVS, Alert Manager, modos, cloud ou app.
 - Confirmar que nenhum teste ou implementacao usa GPIO direto para a bomba ATO.
 - Confirmar que nenhum teste ou implementacao cria driver proprio de bomba ATO.
-- Confirmar que nenhum teste ou implementacao altera `architecture/`, `specs/` ou `tasks/firmware-master-plan.md`.
+- Confirmar que nenhum teste ou implementacao altera `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md`.
 - Confirmar por revisao que funcionalidades de fases posteriores nao foram iniciadas.

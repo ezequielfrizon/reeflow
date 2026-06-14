@@ -22,7 +22,7 @@ O modulo funcional em `modules/lighting` nao deve depender de tipos, resultados 
 
 Esta fase nao deve criar `lighting_store`, backend NVS, repositorio de perfis persistente ou qualquer boundary de storage definitivo. A evolucao para persistencia deve consumir os contratos de perfil e configuracao definidos nesta fase sem exigir movimentacao ampla dos arquivos de iluminacao.
 
-Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` deve ser alterado.
+Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` deve ser alterado.
 
 ## Estrutura Recomendada
 
@@ -175,7 +175,7 @@ Esta tarefa nao deve implementar controlador LEDC real, politica de curvas, atua
 - O fake permite inspecionar comandos recebidos em testes.
 - O build real do firmware nao depende de fakes ou mocks.
 - Nenhum comportamento funcional de iluminacao e iniciado nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -274,7 +274,7 @@ Esta tarefa nao deve atualizar System State, nao deve emitir eventos, nao deve c
 - O controlador nao expoe enums ou tipos de diagnostico da Fase 1 como contrato funcional.
 - O firmware compila sem exigir luminaria fisicamente conectada.
 - A tarefa nao atualiza System State, nao publica eventos e nao inicializa funcionalidades futuras.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -387,7 +387,7 @@ Esta tarefa nao deve escrever PWM, atualizar System State, emitir eventos no Eve
 - Perfil de aclimatacao invalido converge canais ativos para duty zero por fade suave.
 - Configuracao invalida nao cria estado novo no System State.
 - A politica nao altera `temperature`, `waterLevel`, `relays`, `modes`, `ato`, `network`, `alerts` ou `systemHealth`.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -505,7 +505,7 @@ Esta tarefa nao deve implementar NVS Preferences real, MQTT, app, comandos remot
 - O servico mantem `system.lighting` como fonte unica de verdade.
 - O servico nao altera blocos nao relacionados do System State.
 - O servico nao implementa NVS, MQTT, Alert Manager, modos, ATO, cloud, app ou historico.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -621,7 +621,7 @@ Esta tarefa nao deve inicializar NVS real, Wi-Fi, MQTT, Alert Manager, cloud, ap
 - O Watchdog continua sendo alimentado conforme a Fase 2.
 - O build real nao depende de fake PWM controller ou fake tempo.
 - Nenhuma funcionalidade de NVS real, Wi-Fi, MQTT, Alert Manager, cloud ou aplicativo e inicializada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -687,7 +687,7 @@ Qualquer validacao real com luminaria, MOSFET, fonte 12V, carga LED, corrente, d
 - `firmware/src/drivers/lighting/`
 - `firmware/src/app/`
 - `firmware/platformio.ini`, somente se necessario para ambiente de teste
-- `tasks/firmware-phase-08-light-system.md`
+- `tasks/firmware/phases/firmware-phase-08-light-system.md`
 
 ### Criterios de aceitacao
 
@@ -741,7 +741,7 @@ Qualquer validacao real com luminaria, MOSFET, fonte 12V, carga LED, corrente, d
 - Revisao de escopo confirma que comandos remotos nao foram implementados.
 - Revisao de escopo confirma que modos, ATO e reles nao foram alterados funcionalmente.
 - Revisao de escopo confirma que GPIO13 nao foi usado como canal funcional.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -761,5 +761,5 @@ Qualquer validacao real com luminaria, MOSFET, fonte 12V, carga LED, corrente, d
 - Confirmar que nenhum teste ou implementacao implementa comandos remotos.
 - Confirmar que nenhum teste ou implementacao altera funcionalmente modos, ATO ou reles.
 - Confirmar que nenhum teste ou implementacao usa GPIO13 como canal funcional de iluminacao.
-- Confirmar que nenhum teste ou implementacao altera `architecture/`, `specs/` ou `tasks/firmware-master-plan.md`.
+- Confirmar que nenhum teste ou implementacao altera `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md`.
 - Confirmar por revisao que funcionalidades de fases posteriores nao foram iniciadas.

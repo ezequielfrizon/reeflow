@@ -8,7 +8,8 @@
 #include "drivers/io/arduino_hardware_io.h"
 #include "drivers/sensors/ds18b20/ds18b20_temperature_sensor.h"
 #include "drivers/sensors/vl6180x/vl6180x_level_sensor.h"
-#include "modules/modes/mode_store.h"
+#include "storage/preferences_storage_backend.h"
+#include "storage/storage_service.h"
 
 namespace reeflow::app {
 
@@ -22,12 +23,14 @@ CoreApp& defaultCoreApp() {
       drivers::arduinoGpioPort());
   static drivers::lighting::LedcLightingPwmController lightingController(
       drivers::arduinoPwmLedcPort());
-  static modules::modes::VolatileModeStore modeStore;
+  static storage::PreferencesStorageBackend storageBackend;
+  static storage::StorageService storageService(storageBackend);
+  static storage::StorageModeStore modeStore(storageService);
   static CoreApp app(core::platform::arduinoCorePlatform(),
                      core::events::defaultEventBus(),
                      config::defaultConfigManager(), temperatureSensor,
                      waterLevelSensor, relayController, lightingController,
-                     modeStore);
+                     modeStore, &storageService);
   return app;
 }
 

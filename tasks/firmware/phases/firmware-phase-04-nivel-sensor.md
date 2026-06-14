@@ -20,7 +20,7 @@ O intervalo de leitura e o timeout de sensor offline devem ser definidos por con
 
 O nome canonico dos estados no firmware deve seguir `specs/system-state-spec.md`: `NORMAL`, `LOW`, `HIGH` e `SENSOR_OFFLINE`. Estados de ATO como `REFILLING`, `TIMEOUT` e `DISABLED` nao pertencem ao bloco `waterLevel` e nao devem ser implementados nesta fase.
 
-Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` deve ser alterado.
+Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` deve ser alterado.
 
 ## Estrutura Recomendada
 
@@ -119,7 +119,7 @@ Esta tarefa nao deve implementar driver I2C real, nao deve implementar adapter r
 - O fake ou mock permite controlar resultados e sequencias de resultados em testes sem hardware.
 - O build real do firmware nao depende de fakes ou mocks.
 - Nenhum comportamento funcional de leitura periodica e iniciado nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -199,7 +199,7 @@ Se a leitura do VL6180X exigir espera ou polling de pronto, o adapter deve ser p
 - O firmware compila sem exigir VL6180X fisicamente conectado.
 - A tarefa nao atualiza System State, nao agenda leitura periodica e nao emite eventos.
 - Nenhum teste fisico e necessario para concluir a tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -282,7 +282,7 @@ Esta tarefa tambem deve declarar os contratos locais de eventos de nivel em `mod
 - Existem contratos locais para `WATER_LEVEL_UPDATED`, `WATER_LEVEL_LOW`, `WATER_LEVEL_HIGH`, `WATER_LEVEL_SENSOR_OFFLINE` e `WATER_LEVEL_SENSOR_RECOVERED`.
 - Eventos de nivel nao publicam MQTT, nao criam alertas centralizados com cooldown e nao persistem historico.
 - A regra e deterministica e testavel sem hardware.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -467,7 +467,7 @@ Esta tarefa nao deve inicializar MQTT, NVS, Alert Manager, reles, ATO automatico
 - O Watchdog continua sendo alimentado conforme a Fase 2.
 - O build real nao depende de fake sensor, fake I2C ou fake tempo.
 - Nenhuma funcionalidade de MQTT, NVS, Alert Manager, reles, ATO automatico, modos ou iluminacao e inicializada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -516,7 +516,7 @@ Tambem deve haver uma revisao de escopo confirmando que a Fase 4 nao implementou
 - `firmware/src/drivers/sensors/vl6180x/`
 - `firmware/src/app/`
 - `firmware/platformio.ini`, somente se necessario para ambiente de teste
-- `tasks/firmware-phase-04-nivel-sensor.md`
+- `tasks/firmware/phases/firmware-phase-04-nivel-sensor.md`
 
 ### Criterios de aceitacao
 
@@ -539,7 +539,7 @@ Tambem deve haver uma revisao de escopo confirmando que a Fase 4 nao implementou
 - Revisao de escopo confirma que nenhum evento `ATO_*` foi implementado.
 - Revisao de escopo confirma que o rele 3 e a bomba ATO nao sao acionados.
 - Revisao de escopo confirma que MQTT, NVS e Alert Manager nao foram inicializados ou implementados.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 

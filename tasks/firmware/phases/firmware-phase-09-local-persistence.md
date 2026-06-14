@@ -20,7 +20,7 @@ A politica de escrita deve salvar apenas quando houver mudanca efetiva, evitar g
 
 Eventos oficiais da fase sao `CONFIG_SAVED`, `CONFIG_RESTORED` e `CONFIG_RESET`, conforme `specs/storage-spec.md`. Esses eventos devem permanecer locais ao firmware nesta fase. Eles nao devem publicar MQTT, criar alertas centralizados, persistir historico, enviar notificacoes ou sincronizar cloud.
 
-Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` deve ser alterado.
+Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` deve ser alterado.
 
 ## Estrutura Recomendada
 
@@ -153,7 +153,7 @@ Esta tarefa nao deve implementar NVS Preferences real, restauracao de boot, seri
 - O fake permite contar gravacoes por chave ou dominio.
 - O build real do firmware nao depende de fakes ou mocks.
 - Nenhuma implementacao real de Preferences e criada nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -253,7 +253,7 @@ Esta tarefa nao deve serializar todos os dominios funcionais, nao deve restaurar
 - Reset bem sucedido emite `CONFIG_RESET`.
 - Reset nao cria comando remoto, endpoint, MQTT, UI ou app.
 - Nenhum Wi-Fi runtime, MQTT runtime, Alert Manager, cloud ou app e implementado.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -369,7 +369,7 @@ Esta tarefa nao deve implementar persistencia de iluminacao, modo atual, schedul
 - Eventos `CONFIG_*` nao publicam MQTT, nao criam alertas e nao persistem historico.
 - Nenhuma persistencia de iluminacao e implementada nesta tarefa.
 - Nenhuma persistencia de modo atual e implementada nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -477,7 +477,7 @@ Esta tarefa nao deve implementar comandos remotos de iluminacao, MQTT, app, clou
 - O primeiro ciclo funcional apos boot permanece sob responsabilidade do `LightingService`.
 - GPIO13 nao e usado como canal funcional.
 - Nenhum MQTT, app, cloud, Alert Manager, historico ou comando remoto e implementado.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -581,7 +581,7 @@ Esta tarefa nao deve implementar novos efeitos de modo, alterar regras de ATO, a
 - Nenhum novo comportamento operacional de modo e criado.
 - Nenhuma regra de ATO, rele ou iluminacao e alterada fora do necessario para restauracao segura existente.
 - Nenhuma funcionalidade de Wi-Fi, MQTT, Alert Manager, cloud, app ou resiliencia futura e implementada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -697,7 +697,7 @@ Esta tarefa nao deve implementar Wi-Fi runtime, MQTT runtime, Alert Manager, tes
 - Watchdog continua sendo alimentado conforme a Fase 2.
 - O build real nao depende de fake storage, fake tempo ou mocks.
 - Nenhuma funcionalidade de Wi-Fi runtime, MQTT runtime, Alert Manager, cloud, app ou resiliencia futura e inicializada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -764,7 +764,7 @@ Qualquer validacao real com ESP32, NVS fisica, reboot fisico, ciclo de energia, 
 - `firmware/src/modules/lighting/`
 - `firmware/src/app/`
 - `firmware/platformio.ini`, somente se necessario para ambiente de teste
-- `tasks/firmware-phase-09-local-persistence.md`
+- `tasks/firmware/phases/firmware-phase-09-local-persistence.md`
 
 ### Criterios de aceitacao
 
@@ -814,8 +814,8 @@ Qualquer validacao real com ESP32, NVS fisica, reboot fisico, ciclo de energia, 
 - Revisao de escopo confirma que testes de resiliencia da Fase 13 nao foram implementados.
 - Revisao de escopo confirma que cloud e app nao foram implementados.
 - Revisao de escopo confirma que comandos remotos nao foram implementados.
-- Revisao de escopo confirma que `architecture/`, `specs/` e `tasks/firmware-master-plan.md` nao foram alterados.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Revisao de escopo confirma que `architecture/`, `specs/` e `tasks/firmware/firmware-master-plan.md` nao foram alterados.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -832,5 +832,5 @@ Qualquer validacao real com ESP32, NVS fisica, reboot fisico, ciclo de energia, 
 - Confirmar que nenhum teste ou implementacao inicializa Wi-Fi runtime, MQTT runtime, Alert Manager, cloud ou app.
 - Confirmar que nenhum teste ou implementacao publica MQTT, recebe comandos remotos ou persiste historico.
 - Confirmar que nenhum teste ou implementacao transforma restauracao em acionamento fisico de rele, bomba ATO ou PWM.
-- Confirmar que nenhum teste ou implementacao altera `architecture/`, `specs/` ou `tasks/firmware-master-plan.md`.
+- Confirmar que nenhum teste ou implementacao altera `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md`.
 - Confirmar por revisao que funcionalidades de fases posteriores nao foram iniciadas.

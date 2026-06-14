@@ -20,7 +20,7 @@ Comandos idempotentes devem ter comportamento fechado: se o rele alvo ja estiver
 
 O Rele 3 deve ser controlavel manualmente como rele ATO, mas nao deve executar automacao de reposicao, nao deve ler `waterLevel`, nao deve alterar o bloco `ato`, nao deve gerar eventos `ATO_*`, nao deve aplicar timeout de reposicao e nao deve aplicar cooldown. Essas responsabilidades pertencem a Fase 6.
 
-Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` deve ser alterado.
+Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` deve ser alterado.
 
 ## Estrutura Recomendada
 
@@ -121,7 +121,7 @@ Esta tarefa nao deve implementar driver GPIO real, nao deve atualizar System Sta
 - O fake ou mock permite controlar resultados e inspecionar comandos recebidos em testes sem hardware.
 - O build real do firmware nao depende de fakes ou mocks.
 - Nenhum comportamento funcional de acionamento e iniciado nesta tarefa.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -203,7 +203,7 @@ O controlador pode reutilizar boundary de GPIO e contratos da Fase 1, mas nao de
 - O controlador nao expoe enums ou tipos de diagnostico da Fase 1 como contrato funcional.
 - O firmware compila sem exigir modulo de rele fisicamente conectado.
 - A tarefa nao atualiza System State, nao publica eventos e nao inicializa funcionalidades futuras.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -303,7 +303,7 @@ Esta tarefa nao deve implementar MQTT, app, comandos remotos, ATO automatico, ti
 - Eventos de rele nao publicam MQTT, nao criam alertas centralizados e nao persistem historico.
 - Eventos de rele nao criam eventos `ATO_*`, `MODE_*` ou comandos de iluminacao.
 - O servico nao depende de hardware fisico para ser testado.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -399,7 +399,7 @@ O Watchdog deve continuar funcionando conforme a Fase 2. Falhas de inicializacao
 - O Watchdog continua sendo alimentado conforme a Fase 2.
 - O build real nao depende de fake controller, fake GPIO ou fake tempo.
 - Nenhuma funcionalidade de MQTT, NVS, Alert Manager, ATO automatico, modos, iluminacao, cloud ou aplicativo e inicializada.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 
@@ -453,7 +453,7 @@ Qualquer validacao real com modulo de rele, carga fisica, bomba, aquecedor, toma
 - `firmware/src/drivers/relays/`
 - `firmware/src/app/`
 - `firmware/platformio.ini`, somente se necessario para ambiente de teste
-- `tasks/firmware-phase-05-relay-system.md`
+- `tasks/firmware/phases/firmware-phase-05-relay-system.md`
 
 ### Criterios de aceitacao
 
@@ -479,7 +479,7 @@ Qualquer validacao real com modulo de rele, carga fisica, bomba, aquecedor, toma
 - Revisao de escopo confirma que o Rele 3 nao executa automacao de ATO.
 - Revisao de escopo confirma que `MQTT`, `APP` e `AUTOMATION` nao foram implementados como entradas de comando desta fase.
 - Revisao de escopo confirma que MQTT, NVS, Alert Manager, modos e app nao foram inicializados ou implementados.
-- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware-master-plan.md` e alterado.
+- Nenhum arquivo em `architecture/`, `specs/` ou `tasks/firmware/firmware-master-plan.md` e alterado.
 
 ### Criterios de teste
 

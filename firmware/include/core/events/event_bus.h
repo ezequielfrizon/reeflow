@@ -35,6 +35,9 @@ enum class EventType {
   kLightingProfileChanged,
   kLightingStarted,
   kLightingStopped,
+  kConfigSaved,
+  kConfigRestored,
+  kConfigReset,
 };
 
 enum class StateArea {

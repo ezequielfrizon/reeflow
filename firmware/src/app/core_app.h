@@ -24,11 +24,13 @@
 #include "modules/temperature/temperature_service.h"
 #include "modules/water_level/water_level_sensor.h"
 #include "modules/water_level/water_level_service.h"
+#include "storage/storage_service.h"
 
 namespace reeflow::app {
 
 constexpr uint32_t kCoreWatchdogTimeoutMillis = 5000;
 constexpr uint32_t kCoreWatchdogFeedIntervalMillis = 1000;
+constexpr uint32_t kStorageFlushIntervalMillis = 5000;
 
 class CoreApp {
  public:
@@ -38,7 +40,8 @@ class CoreApp {
           modules::water_level::WaterLevelSensor& waterLevelSensor,
           modules::relays::RelayController& relayController,
           modules::lighting::LightingPwmController& lightingController,
-          modules::modes::ModeStore& modeStore);
+          modules::modes::ModeStore& modeStore,
+          storage::StorageService* storageService = nullptr);
 
   bool setup();
   core::scheduler::SchedulerRunResult loopOnce();
@@ -61,9 +64,17 @@ class CoreApp {
   core::watchdog::WatchdogService& watchdog();
 
  private:
+  static bool handleConfigChanged(const core::events::Event& event,
+                                  void* context);
+  bool registerStorageFlushTask();
+  void restorePersistedConfiguration();
+  void trackConfigChange(core::events::ConfigDomain domain);
+  void syncLightingPersistedState();
+
   core::platform::CorePlatform& platform_;
   core::events::EventBus& eventBus_;
   config::ConfigManager& config_;
+  storage::StorageService* storageService_;
   core::logging::Logger logger_;
   core::scheduler::TaskScheduler scheduler_;
   core::watchdog::WatchdogService watchdog_;
@@ -74,6 +85,7 @@ class CoreApp {
   modules::modes::RelayModeEffects modeEffects_;
   modules::modes::ModeService modeService_;
   modules::ato::AtoService atoService_;
+  storage::LightingPersistedState lightingPersistedState_;
   modules::lighting::LightingProfile lightingProfile_;
   modules::lighting::LightingModuleConfig lightingModuleConfig_;
   modules::lighting::LightingService lightingService_;

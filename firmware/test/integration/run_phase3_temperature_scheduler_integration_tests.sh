@@ -18,6 +18,9 @@ g++ -std=c++17 -Wall -Wextra -Werror \
   "$FIRMWARE_DIR/src/core/scheduler/task_scheduler.cpp" \
   "$FIRMWARE_DIR/src/core/state/system_state.cpp" \
   "$FIRMWARE_DIR/src/core/watchdog/watchdog_service.cpp" \
+  "$FIRMWARE_DIR/src/storage/storage_events.cpp" \
+  "$FIRMWARE_DIR/src/storage/storage_service.cpp" \
+  "$FIRMWARE_DIR/src/storage/storage_write_policy.cpp" \
   "$FIRMWARE_DIR/src/modules/ato/ato_events.cpp" \
   "$FIRMWARE_DIR/src/modules/ato/ato_policy.cpp" \
   "$FIRMWARE_DIR/src/modules/ato/ato_service.cpp" \

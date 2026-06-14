@@ -2,14 +2,14 @@
 set -euo pipefail
 
 FIRMWARE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_DIR="${TMPDIR:-/tmp}/reeflow_phase4_water_level_scheduler_integration_tests"
+BUILD_DIR="${TMPDIR:-/tmp}/reeflow_phase9_storage_scheduler_integration_tests"
 mkdir -p "$BUILD_DIR"
 
 g++ -std=c++17 -Wall -Wextra -Werror \
   -I"$FIRMWARE_DIR/include" \
   -I"$FIRMWARE_DIR/src" \
   -I"$FIRMWARE_DIR/test" \
-  "$FIRMWARE_DIR/test/integration/test_water_level_scheduler_integration.cpp" \
+  "$FIRMWARE_DIR/test/integration/test_storage_scheduler_integration.cpp" \
   "$FIRMWARE_DIR/src/app/core_app.cpp" \
   "$FIRMWARE_DIR/src/config/config_manager.cpp" \
   "$FIRMWARE_DIR/src/core/events/event_bus.cpp" \
@@ -41,6 +41,6 @@ g++ -std=c++17 -Wall -Wextra -Werror \
   "$FIRMWARE_DIR/src/modules/water_level/water_level_events.cpp" \
   "$FIRMWARE_DIR/src/modules/water_level/water_level_service.cpp" \
   "$FIRMWARE_DIR/src/modules/water_level/water_level_state_evaluator.cpp" \
-  -o "$BUILD_DIR/test_water_level_scheduler_integration"
+  -o "$BUILD_DIR/test_storage_scheduler_integration"
 
-"$BUILD_DIR/test_water_level_scheduler_integration"
+"$BUILD_DIR/test_storage_scheduler_integration"
